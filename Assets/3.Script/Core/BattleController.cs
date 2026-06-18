@@ -13,7 +13,9 @@ public class BattleController : MonoBehaviour
     public DamageResolver Resolver { get; private set; }
 
     public event Action<BattleState> OnStateChanged;
+    public event Action<Side> OnTurnStarting;
     public event Action<Side> OnTurnStarted;
+    public event Action<Side> OnTurnEnded;
     public event Action<Side> OnGameEnded;
 
     /// <summary>
@@ -58,15 +60,26 @@ public class BattleController : MonoBehaviour
         {
             case BattleState.PlayerTurnStart:
                 CurrentSide = Player;
-                OnTurnStarted?.Invoke(CurrentSide);
+                RunTurnStart(CurrentSide);
                 SetState(BattleState.AwaitCardSelect);
                 break;
             case BattleState.OpponentTurnStart:
                 CurrentSide = Opponent;
-                OnTurnStarted?.Invoke(CurrentSide);
+                RunTurnStart(CurrentSide);
                 SetState(BattleState.OpponentTurnAction);
                 break;
         }
+    }
+
+    /// <summary>
+    /// 턴 시작 시퀀스. OnTurnStarting 발행 → TurnStartEffects.Apply(힐러 회복 등) → OnTurnStarted 발행.
+    /// UI는 OnTurnStarting 직후 뷰를 갱신하면 회복 결과를 반영한 상태에서 OnTurnStarted를 받게 된다.
+    /// </summary>
+    private void RunTurnStart(Side side)
+    {
+        OnTurnStarting?.Invoke(side);
+        TurnStartEffects.Apply(side);
+        OnTurnStarted?.Invoke(side);
     }
 
     /// <summary>
@@ -74,6 +87,7 @@ public class BattleController : MonoBehaviour
     /// </summary>
     public void EndCurrentTurn()
     {
+        OnTurnEnded?.Invoke(CurrentSide);
         if (CheckGameEnd()) return;
         SetState(CurrentSide == Player
             ? BattleState.OpponentTurnStart
