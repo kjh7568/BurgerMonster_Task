@@ -10,6 +10,7 @@ public class BattleController : MonoBehaviour
     public BattleState State { get; private set; }
     public Side CurrentSide { get; private set; }
     public Side Winner { get; private set; }
+    public DamageResolver Resolver { get; private set; }
 
     public event Action<BattleState> OnStateChanged;
     public event Action<Side> OnTurnStarted;
@@ -28,7 +29,19 @@ public class BattleController : MonoBehaviour
         State = BattleState.Init;
         Player = new Side(true, config.playerStartingCards, config.fieldSlotCount);
         Opponent = new Side(false, config.opponentStartingCards, config.fieldSlotCount);
+        Resolver = new DamageResolver();
         SetState(BattleState.PlayerTurnStart);
+    }
+
+    public BattleContext BuildContext(Side attacker, int attackerIdx)
+    {
+        return new BattleContext
+        {
+            attackerSide = attacker,
+            attackerIndex = attackerIdx,
+            defenderSide = attacker == Player ? Opponent : Player,
+            resolver = Resolver,
+        };
     }
 
     /// <summary>
