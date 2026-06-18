@@ -3,6 +3,7 @@ using UnityEngine;
 public class CardInstance
 {
     public readonly CardDataSO data;
+    public ICardSkill Skill { get; }
     public int CurrentHP { get; private set; }
     public bool IsDead => CurrentHP <= 0;
 
@@ -10,6 +11,7 @@ public class CardInstance
     {
         this.data = data;
         CurrentHP = data.baseHP;
+        Skill = SkillFactory.Create(data.type);
     }
 
     public void TakeDamage(int amount) => CurrentHP = Mathf.Max(0, CurrentHP - amount);
