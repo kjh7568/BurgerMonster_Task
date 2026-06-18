@@ -33,6 +33,12 @@ public class BattleController : MonoBehaviour
         SetState(BattleState.PlayerTurnStart);
     }
 
+    /// <summary>
+    /// 스킬 실행에 필요한 BattleContext를 조립한다. 공격 진영을 기준으로 방어 진영을 자동 결정하고 공용 Resolver를 주입. 카드 선택/AI 행동 시 ICardSkill 호출 직전에 사용.
+    /// </summary>
+    /// <param name="attacker">공격 측 진영. Player 또는 Opponent 중 하나여야 한다.</param>
+    /// <param name="attackerIdx">공격 카드의 field 슬롯 인덱스(0~2).</param>
+    /// <returns>내용이 채워진 BattleContext. ICardSkill.GetValidTargets·Execute에 그대로 전달.</returns>
     public BattleContext BuildContext(Side attacker, int attackerIdx)
     {
         return new BattleContext
