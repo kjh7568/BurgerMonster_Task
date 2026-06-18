@@ -15,9 +15,15 @@ public class BattleController : MonoBehaviour
     public event Action<Side> OnTurnStarted;
     public event Action<Side> OnGameEnded;
 
-    void Start() => Init();
+    /// <summary>
+    /// Unity 라이프사이클 진입점. 씬 로드 후 자동 호출되어 Init으로 전투 초기화를 위임.
+    /// </summary>
+    private void Start() => Init();
 
-    void Init()
+    /// <summary>
+    /// 양 진영 Side를 생성하고 상태를 PlayerTurnStart로 진입시켜 전투를 시작한다. Start에서 1회 호출.
+    /// </summary>
+    private void Init()
     {
         State = BattleState.Init;
         Player = new Side(true, config.playerStartingCards, config.fieldSlotCount);
@@ -25,7 +31,11 @@ public class BattleController : MonoBehaviour
         SetState(BattleState.PlayerTurnStart);
     }
 
-    void SetState(BattleState s)
+    /// <summary>
+    /// FSM 상태를 전이시키고 OnStateChanged 이벤트를 발행한다. 턴 시작 상태일 경우 CurrentSide를 갱신하고 후속 상태로 자동 연쇄 전이. 내부 전용.
+    /// </summary>
+    /// <param name="s">전이할 다음 BattleState.</param>
+    private void SetState(BattleState s)
     {
         State = s;
         Debug.Log($"[State] {s}");
@@ -46,6 +56,9 @@ public class BattleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 현재 턴을 종료하고 상대 진영의 턴 시작 상태로 전이한다. 게임 종료 조건을 먼저 검사하므로 종료 시 전이는 일어나지 않는다. UI의 턴 종료 버튼/AI 행동 완료 시점에 호출.
+    /// </summary>
     public void EndCurrentTurn()
     {
         if (CheckGameEnd()) return;
@@ -54,7 +67,11 @@ public class BattleController : MonoBehaviour
             : BattleState.PlayerTurnStart);
     }
 
-    bool CheckGameEnd()
+    /// <summary>
+    /// 양 진영의 패배 조건을 확인하고 한 쪽이 패배했으면 Winner를 정한 뒤 GameEnd 상태로 전이, OnGameEnded를 발행한다. 매 턴 종료 시점에 호출.
+    /// </summary>
+    /// <returns>게임이 종료되었으면 true, 아직 진행 중이면 false.</returns>
+    private bool CheckGameEnd()
     {
         if (Player.IsDefeated || Opponent.IsDefeated)
         {
