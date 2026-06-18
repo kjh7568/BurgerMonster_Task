@@ -16,15 +16,15 @@ MonoBehaviour:
   - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
   - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
   - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
-  - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
-  - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
-  - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
+  - {fileID: 11400000, guid: e7d04ca16c6260b429f0d04644e7d754, type: 2}
+  - {fileID: 11400000, guid: 6d44f128c45c263458b464df112cef69, type: 2}
+  - {fileID: 11400000, guid: 6618b038536bbf047a8535b60ba27acb, type: 2}
   opponentStartingCards:
   - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
   - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
   - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
-  - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
-  - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
-  - {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
+  - {fileID: 11400000, guid: e7d04ca16c6260b429f0d04644e7d754, type: 2}
+  - {fileID: 11400000, guid: 6d44f128c45c263458b464df112cef69, type: 2}
+  - {fileID: 11400000, guid: 6618b038536bbf047a8535b60ba27acb, type: 2}
   fieldSlotCount: 3
   opponentActionDelay: 0.8

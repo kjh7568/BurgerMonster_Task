@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e1c0362bedd39c345a223bd34ac87e2c, type: 3}
-  m_Name: New Card Data SO
+  m_Name: Card_Knight
   m_EditorClassIdentifier: Assembly-CSharp::CardDataSO
-  cardName: NormalAttack
+  cardName: "\uAE30\uC0AC"
   type: 0
-  baseHP: 10
-  illustration: {fileID: 0}
+  baseHP: 4
+  illustration: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   description: 
