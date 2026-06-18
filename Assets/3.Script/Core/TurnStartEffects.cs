@@ -1,10 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// 턴 시작 시 진영 전체에 적용되는 효과를 모아놓은 정적 헬퍼.
-/// 현재는 힐러의 "자신 제외 아군 +1" 효과만 처리한다.
-/// BattleController가 OnTurnStarting 발행 직후, OnTurnStarted 발행 직전에 호출.
-/// </summary>
 public static class TurnStartEffects
 {
     /// <summary>
