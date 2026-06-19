@@ -5,46 +5,47 @@ public class Side
 {
     public readonly bool isPlayer;
     public readonly CardInstance[] field;
-    public readonly Queue<CardInstance> standby;
+    public readonly CardInstance[] standby;
 
     /// <summary>
-    /// 한 진영의 시작 상태를 만든다. startingCards의 앞 fieldSize장은 field에, 나머지는 standby 큐에 들어간다. BattleController가 전투 시작 시 양 진영에 대해 호출.
+    /// 한 진영의 시작 상태를 만든다. startingCards의 앞 fieldSize장은 field에, 다음 fieldSize장은 standby의 같은 인덱스 슬롯에 들어간다. BattleController가 전투 시작 시 양 진영에 대해 호출.
     /// </summary>
     /// <param name="isPlayer">true면 플레이어 진영, false면 적 진영.</param>
-    /// <param name="startingCards">초기 카드 SO 목록(보통 6장). 인덱스 순서가 배치 순서.</param>
-    /// <param name="fieldSize">전장 슬롯 개수(보통 3). 나머지 카드는 대기로 간다.</param>
+    /// <param name="startingCards">초기 카드 SO 목록(보통 6장). 앞 fieldSize장이 전장, 다음 fieldSize장이 대기 슬롯.</param>
+    /// <param name="fieldSize">전장 슬롯 개수(보통 3). standby 슬롯도 동일 크기로 만든다.</param>
     public Side(bool isPlayer, IReadOnlyList<CardDataSO> startingCards, int fieldSize)
     {
         this.isPlayer = isPlayer;
         field = new CardInstance[fieldSize];
-        standby = new Queue<CardInstance>();
+        standby = new CardInstance[fieldSize];
 
         for (int i = 0; i < startingCards.Count; i++)
         {
             var inst = new CardInstance(startingCards[i]);
             if (i < fieldSize) field[i] = inst;
-            else standby.Enqueue(inst);
+            else if (i < fieldSize * 2) standby[i - fieldSize] = inst;
         }
     }
 
-    public bool IsDefeated => field.All(c => c == null) && standby.Count == 0;
+    public int StandbyCount => standby.Count(c => c != null);
+
+    public bool IsDefeated => field.All(c => c == null) && StandbyCount == 0;
 
     /// <summary>
-    /// 전장의 빈 슬롯을 앞쪽(0→1→2 순)부터 대기 카드로 채운다. 카드 사망 후 DamageResolver가 호출. 사망 슬롯과 무관하게 가장 앞쪽 빈 슬롯이 먼저 채워진다.
+    /// standby 슬롯에서 비어있지 않은 인덱스 중 하나를 무작위로 골라 카드를 꺼내고, 해당 standby 슬롯을 비운다. 카드 사망 시 자동 배치를 위해 DamageResolver가 호출. UI는 반환된 fromStandbyIdx를 받아 뒤집기·이동 연출 타깃으로 사용.
     /// </summary>
-    /// <returns>새로 채워진 슬롯 인덱스 목록. UI 등장 애니메이션의 타깃으로 사용.</returns>
-    public List<int> RefillField()
+    /// <returns>(꺼낸 카드, 비워진 standby 슬롯 인덱스). 대기 카드가 없으면 (null, -1).</returns>
+    public (CardInstance card, int fromStandbyIdx) PopRandomStandby()
     {
-        var refilled = new List<int>();
-        for (int i = 0; i < field.Length; i++)
-        {
-            if (field[i] == null && standby.Count > 0)
-            {
-                field[i] = standby.Dequeue();
-                refilled.Add(i);
-            }
-        }
-        return refilled;
+        var aliveIdx = new List<int>();
+        for (int i = 0; i < standby.Length; i++)
+            if (standby[i] != null) aliveIdx.Add(i);
+        if (aliveIdx.Count == 0) return (null, -1);
+
+        int pick = aliveIdx[UnityEngine.Random.Range(0, aliveIdx.Count)];
+        var card = standby[pick];
+        standby[pick] = null;
+        return (card, pick);
     }
 
     /// <summary>
