@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(-100)]
 public class BattleController : MonoBehaviour
 {
     [SerializeField] BattleConfigSO config;

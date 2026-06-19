@@ -1,17 +1,25 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// 대상 선택 단계의 UI 책임. AwaitTargetSelect 진입 시 적 field 슬롯 중 현재 PendingAttacker의 스킬이 valid로 본 슬롯에만 노란 외곽선+상호작용 활성, 나머지는 비활성. 상태가 바뀌면 즉시 해제.
-/// 적 standby 슬롯은 뒷면이라 대상에서 자체적으로 제외(필드 호출 자체 안 함).
-/// </summary>
 public class BattleSceneUI : MonoBehaviour
 {
     [SerializeField] private BattleController battle;
     [SerializeField] private CardView[] opponentFieldSlots;
+    [SerializeField] private GameObject cardViewPrefab;
+    [SerializeField] private RectTransform[] playerSlots;
+    [SerializeField] private RectTransform[] opponentSlots;
+
+    private CardView[] playerViews;
+    private CardView[] opponentViews;
+
+    public IReadOnlyList<CardView> PlayerViews => playerViews;
+    public IReadOnlyList<CardView> OpponentViews => opponentViews;
 
     private void Start()
     {
+        playerViews = SpawnSide(battle.Player, playerSlots);
+        opponentViews = SpawnSide(battle.Opponent, opponentSlots);
+        
         if (battle == null)
         {
             Debug.LogWarning("[BattleSceneUI] battle 참조가 비어있음. 인스펙터에서 연결 필요.");
@@ -45,7 +53,28 @@ public class BattleSceneUI : MonoBehaviour
             }
         }
     }
+    
+    private CardView[] SpawnSide(Side side, RectTransform[] slots)
+    {
+        var views = new CardView[slots.Length];
+        for (int i = 0; i < slots.Length; i++)
+        {
+            var go = Instantiate(cardViewPrefab, slots[i]);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
 
+            var view = go.GetComponent<CardView>();
+            var card = i < side.field.Length ? side.field[i] : null;
+            view.Bind(side, i, card);
+            views[i] = view;
+        }
+        return views;
+    }
+    
     private void HandleStateChanged(BattleState s)
     {
         if (s == BattleState.AwaitTargetSelect)
