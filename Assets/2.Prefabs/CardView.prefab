@@ -504,6 +504,7 @@ MonoBehaviour:
   illustration: {fileID: 9000794104620640527}
   nameText: {fileID: 7250152661227187873}
   hpText: {fileID: 7942490486079862474}
+  hpBar: {fileID: 2495719256044161257}
   typeIcon: {fileID: 2530075080482982085}
   highlight: {fileID: 1673183346361246754}
   deadOverlay: {fileID: 1660709103579894329}

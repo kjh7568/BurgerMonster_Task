@@ -13,6 +13,7 @@ public class CardView : MonoBehaviour
     [SerializeField] private Image illustration;
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text hpText;
+    [SerializeField] private Image hpBar;
     [SerializeField] private Image typeIcon;
     [SerializeField] private GameObject highlight;
     [SerializeField] private GameObject deadOverlay;
@@ -64,6 +65,12 @@ public class CardView : MonoBehaviour
         if (illustration != null) illustration.sprite = Bound.data.illustration;
         if (nameText != null) nameText.text = Bound.data.cardName;
         if (hpText != null) hpText.text = $"{Bound.CurrentHP}/{Bound.data.baseHP}";
+        if (hpBar != null)
+        {
+            hpBar.fillAmount = Bound.data.baseHP > 0
+                ? (float)Bound.CurrentHP / Bound.data.baseHP
+                : 0f;
+        }
         if (deadOverlay != null) deadOverlay.SetActive(Bound.IsDead);
     }
 
