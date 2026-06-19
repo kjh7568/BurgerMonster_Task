@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// 플레이어 카드 슬롯들의 클릭을 받아 액션 오버레이를 토글한다.
 /// 한 번에 한 카드의 패널만 켜져 있고, 같은 카드 재클릭은 닫기, 다른 카드 클릭은 전환.
-/// 공격/스킬 버튼 클릭은 현재 단계에서는 로그만 출력 — 대상 선택/실행은 후속 작업에서 이벤트 구독.
+/// 공격/스킬 버튼 클릭은 BattleController.EnterTargetSelect로 라우팅해 대상 선택 단계로 진입시키고 오버레이를 닫는다.
 /// CardView는 자기 표시/클릭만 알고, 누구의 어떤 카드가 어떤 조건에서 선택될 수 있는지 판정은 여기서 한다(SRP).
 /// </summary>
 public class CardSelectionController : MonoBehaviour
@@ -69,13 +69,16 @@ public class CardSelectionController : MonoBehaviour
         opened = null;
     }
 
-    private void HandleAttackPressed(CardView v)
-    {
-        Debug.Log($"[CardSelection] Attack pressed on slot {v.SlotIndex}");
-    }
+    private void HandleAttackPressed(CardView v) => RouteToTargetSelect(v);
+    private void HandleSkillPressed(CardView v) => RouteToTargetSelect(v);
 
-    private void HandleSkillPressed(CardView v)
+    private void RouteToTargetSelect(CardView v)
     {
-        Debug.Log($"[CardSelection] Skill pressed on slot {v.SlotIndex}");
+        if (v == null || v.Bound == null || v.Bound.IsDead) return;
+        if (battle == null) return;
+        if (battle.State != BattleState.AwaitCardSelect && battle.State != BattleState.AwaitActionSelect) return;
+
+        CloseOpened();
+        battle.EnterTargetSelect(v.SlotIndex);
     }
 }
