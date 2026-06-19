@@ -25,17 +25,30 @@ public class CardView : MonoBehaviour
     [SerializeField] private GameObject deadOverlay;
     [SerializeField] private Button button;
 
+    [Header("Action Overlay")]
+    [SerializeField] private GameObject actionOverlay;
+    [SerializeField] private Button attackButton;
+    [SerializeField] private Button skillButton;
+
     public Side OwningSide { get; private set; }
     public int SlotIndex { get; private set; }
     public CardInstance Bound { get; private set; }
     public bool IsFaceUp { get; private set; }
+    public bool IsActionPanelOpen => actionOverlay != null && actionOverlay.activeSelf;
 
     public event Action<CardView> OnClicked;
+    public event Action<CardView> OnAttackPressed;
+    public event Action<CardView> OnSkillPressed;
 
     private void Awake()
     {
         if (button != null)
             button.onClick.AddListener(() => OnClicked?.Invoke(this));
+        if (attackButton != null)
+            attackButton.onClick.AddListener(() => OnAttackPressed?.Invoke(this));
+        if (skillButton != null)
+            skillButton.onClick.AddListener(() => OnSkillPressed?.Invoke(this));
+        HideActionPanel();
     }
 
     /// <summary>
@@ -52,6 +65,7 @@ public class CardView : MonoBehaviour
         SlotIndex = slot;
         Bound = card;
         IsFaceUp = faceUp;
+        HideActionPanel();
         Refresh();
     }
 
@@ -82,13 +96,25 @@ public class CardView : MonoBehaviour
                 ? (float)Bound.CurrentHP / Bound.data.baseHP
                 : 0f;
         if (deadOverlay != null) deadOverlay.SetActive(Bound.IsDead);
+        if (Bound.IsDead) HideActionPanel();
     }
 
-    /// <summary>면 상태만 바꾸고 즉시 반영. Bound 카드는 그대로 유지.</summary>
+    /// <summary>면 상태만 바꾸고 즉시 반영. Bound 카드는 그대로 유지. 뒷면이면 액션 패널 강제 닫음.</summary>
     public void SetFaceUp(bool up)
     {
         IsFaceUp = up;
+        if (!up) HideActionPanel();
         Refresh();
+    }
+
+    public void ShowActionPanel()
+    {
+        if (actionOverlay != null) actionOverlay.SetActive(true);
+    }
+
+    public void HideActionPanel()
+    {
+        if (actionOverlay != null) actionOverlay.SetActive(false);
     }
 
     public void SetHighlight(bool on)

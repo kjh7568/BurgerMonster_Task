@@ -509,6 +509,9 @@ MonoBehaviour:
   highlight: {fileID: 1673183346361246754}
   deadOverlay: {fileID: 1660709103579894329}
   button: {fileID: 3233618985402542442}
+  actionOverlay: {fileID: 1660709103579894329}
+  attackButton: {fileID: 7427957665915241096}
+  skillButton: {fileID: 4552615820203399906}
 --- !u!1 &3320387012752494293
 GameObject:
   m_ObjectHideFlags: 0

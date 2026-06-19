@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 플레이 모드 진입 시 양 진영의 field 3슬롯(앞면) + standby 3슬롯(뒷면) 총 12장의 CardView를 인스턴스화하고 Bind한다.
-/// 이벤트 구독·하이라이트·클릭 라우팅·standby→field 이동은 후속 작업의 책임 — 여기서는 다루지 않는다.
-/// 후속 컴포넌트는 PlayerFieldViews / PlayerStandbyViews / OpponentFieldViews / OpponentStandbyViews 로 참조.
+/// 양 진영 field 3슬롯(앞면) + standby 3슬롯(뒷면) 총 12장의 CardView를 인스턴스화하고 Bind한다.
+/// 추가로 플레이어 field 카드의 클릭/공격/스킬 입력을 받아 액션 오버레이 토글을 관장한다.
+/// 한 번에 한 카드의 오버레이만 켜져 있고, 같은 카드 재클릭은 닫기, 다른 카드 클릭은 전환.
+/// 공격/스킬 버튼은 오버레이만 닫고 이벤트 발화는 CardView가 직접 — 후속 작업(대상 선택)이 그 이벤트를 구독해서 흐름을 이어받는다.
+/// standby→field 이동, 대상 선택, ExecutePlayerAction 호출은 모두 후속 작업의 책임.
 /// </summary>
 public class BattleSceneUI : MonoBehaviour
 {
@@ -24,6 +26,8 @@ public class BattleSceneUI : MonoBehaviour
     private CardView[] opponentFieldViews;
     private CardView[] opponentStandbyViews;
 
+    private CardView openedCard;
+
     public IReadOnlyList<CardView> PlayerFieldViews => playerFieldViews;
     public IReadOnlyList<CardView> PlayerStandbyViews => playerStandbyViews;
     public IReadOnlyList<CardView> OpponentFieldViews => opponentFieldViews;
@@ -41,6 +45,70 @@ public class BattleSceneUI : MonoBehaviour
         playerStandbyViews = SpawnRow(battle.Player, battle.Player.standby, playerStandbySlots, faceUp: false);
         opponentFieldViews = SpawnRow(battle.Opponent, battle.Opponent.field, opponentFieldSlots, faceUp: true);
         opponentStandbyViews = SpawnRow(battle.Opponent, battle.Opponent.standby, opponentStandbySlots, faceUp: false);
+
+        foreach (var v in playerFieldViews)
+        {
+            if (v == null) continue;
+            v.OnClicked += HandlePlayerCardClicked;
+            v.OnAttackPressed += HandleActionPressed;
+            v.OnSkillPressed += HandleActionPressed;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (playerFieldViews == null) return;
+        foreach (var v in playerFieldViews)
+        {
+            if (v == null) continue;
+            v.OnClicked -= HandlePlayerCardClicked;
+            v.OnAttackPressed -= HandleActionPressed;
+            v.OnSkillPressed -= HandleActionPressed;
+        }
+    }
+
+    /// <summary>
+    /// 플레이어 field 카드 클릭 시 액션 오버레이 토글.
+    /// 선택 불가 카드(죽음/비-플레이어/뒷면)거나 AwaitCardSelect 상태가 아니면 무시.
+    /// 같은 카드 재클릭은 닫기, 다른 카드 클릭은 이전 닫고 새로 열기.
+    /// </summary>
+    private void HandlePlayerCardClicked(CardView v)
+    {
+        if (!IsSelectable(v)) return;
+
+        if (openedCard == v)
+        {
+            CloseOpened();
+            return;
+        }
+
+        if (openedCard != null) openedCard.HideActionPanel();
+        v.ShowActionPanel();
+        openedCard = v;
+    }
+
+    private bool IsSelectable(CardView v)
+    {
+        if (v == null || v.Bound == null || v.Bound.IsDead) return false;
+        if (v.OwningSide == null || !v.OwningSide.isPlayer) return false;
+        if (!v.IsFaceUp) return false;
+        if (battle != null && battle.State != BattleState.AwaitCardSelect) return false;
+        return true;
+    }
+
+    private void CloseOpened()
+    {
+        if (openedCard != null) openedCard.HideActionPanel();
+        openedCard = null;
+    }
+
+    /// <summary>
+    /// 공격/스킬 버튼 클릭. 현재 작업 범위에선 오버레이만 닫고 끝낸다.
+    /// 후속 작업이 CardView.OnAttackPressed/OnSkillPressed를 직접 구독해 대상 선택 단계로 진입시킨다.
+    /// </summary>
+    private void HandleActionPressed(CardView v)
+    {
+        CloseOpened();
     }
 
     /// <summary>
