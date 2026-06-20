@@ -7,6 +7,8 @@ public class BattleController : MonoBehaviour
 {
     [SerializeField] BattleConfigSO config;
 
+    public BattleConfigSO Config => config;
+
     public Side Player { get; private set; }
     public Side Opponent { get; private set; }
     public BattleState State { get; private set; }
@@ -157,6 +159,35 @@ public class BattleController : MonoBehaviour
         PendingAttackerIdx = -1;
 
         SetState(BattleState.PlayerTurnEnd);
+        EndCurrentTurn();
+    }
+
+    /// <summary>
+    /// AI가 상대 턴(OpponentTurnAction)에서 결정한 (attacker, target) 페어를 실행한다.
+    /// ExecutePlayerAction과 대칭: valid target 검증 → 스킬 실행 → ResolveAction → OpponentTurnEnd → EndCurrentTurn.
+    /// OpponentTurnAction이 아니거나 attacker/target이 유효하지 않으면 무시.
+    /// </summary>
+    public void ExecuteOpponentAction(int attackerIdx, int targetIdx)
+    {
+        if (State != BattleState.OpponentTurnAction) return;
+        if (attackerIdx < 0 || attackerIdx >= Opponent.field.Length) return;
+
+        var attacker = Opponent.field[attackerIdx];
+        if (attacker == null || attacker.IsDead) return;
+
+        var ctx = BuildContext(Opponent, attackerIdx);
+        var skill = SkillFactory.Create(attacker.data.type);
+        var valid = new HashSet<int>(skill.GetValidTargets(ctx));
+        if (!valid.Contains(targetIdx))
+        {
+            Debug.LogWarning($"[Battle/AI] target {targetIdx} not valid for opponent slot {attackerIdx}");
+            return;
+        }
+
+        SetState(BattleState.ResolveAction);
+        skill.Execute(ctx, targetIdx);
+
+        SetState(BattleState.OpponentTurnEnd);
         EndCurrentTurn();
     }
 

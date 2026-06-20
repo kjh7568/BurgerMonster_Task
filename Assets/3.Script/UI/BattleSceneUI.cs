@@ -261,6 +261,16 @@ public class BattleSceneUI : MonoBehaviour
         if (opponentFieldViews != null) foreach (var v in opponentFieldViews) v?.Refresh();
     }
 
+    /// <summary>
+    /// 외부(AIController 등)에서 임의 진영·슬롯의 field CardView 하이라이트를 토글.
+    /// 대상 선택 하이라이트와는 별개 — 이 호출은 정책적이라 OnStateChanged 흐름에 영향받지 않는다.
+    /// </summary>
+    public void SetFieldHighlight(Side side, int slotIdx, bool on)
+    {
+        var view = GetFieldView(side, slotIdx);
+        if (view != null) view.SetHighlight(on);
+    }
+
     private CardView GetFieldView(Side side, int slotIdx)
     {
         var arr = side != null && side.isPlayer ? playerFieldViews : opponentFieldViews;
