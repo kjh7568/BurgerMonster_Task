@@ -66,6 +66,7 @@ public class CardView : MonoBehaviour
         Bound = card;
         IsFaceUp = faceUp;
         HideActionPanel();
+        if (button != null) button.interactable = faceUp;
         Refresh();
     }
 
@@ -84,7 +85,7 @@ public class CardView : MonoBehaviour
         gameObject.SetActive(true);
         if (faceUpRoot != null) faceUpRoot.SetActive(IsFaceUp);
         if (faceDownRoot != null) faceDownRoot.SetActive(!IsFaceUp);
-        if (button != null) button.interactable = IsFaceUp;
+        // button.interactable은 외부(SetInteractable / Bind / SetFaceUp)가 소유. Refresh는 표시만 갱신.
 
         if (!IsFaceUp) return;
 
@@ -104,6 +105,7 @@ public class CardView : MonoBehaviour
     {
         IsFaceUp = up;
         if (!up) HideActionPanel();
+        if (button != null) button.interactable = up;
         Refresh();
     }
 

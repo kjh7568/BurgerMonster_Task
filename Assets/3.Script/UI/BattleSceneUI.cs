@@ -54,7 +54,15 @@ public class BattleSceneUI : MonoBehaviour
             v.OnSkillPressed += HandleActionPressed;
         }
 
+        foreach (var v in opponentFieldViews)
+        {
+            if (v == null) continue;
+            v.OnClicked += HandleEnemyFieldClicked;
+            v.SetInteractable(false); // 평소엔 클릭 안 받음. AwaitTargetSelect 진입 시 valid만 켬.
+        }
+
         battle.OnTurnStarting += HandleTurnStarting;
+        battle.OnStateChanged += HandleStateChanged;
         battle.Resolver.OnDamageDealt += HandleDamageDealt;
         battle.Resolver.OnCardDied += HandleCardDied;
         battle.Resolver.OnCardSpawned += HandleCardSpawned;
@@ -65,6 +73,7 @@ public class BattleSceneUI : MonoBehaviour
         if (battle != null)
         {
             battle.OnTurnStarting -= HandleTurnStarting;
+            battle.OnStateChanged -= HandleStateChanged;
             if (battle.Resolver != null)
             {
                 battle.Resolver.OnDamageDealt -= HandleDamageDealt;
@@ -73,13 +82,24 @@ public class BattleSceneUI : MonoBehaviour
             }
         }
 
-        if (playerFieldViews == null) return;
-        foreach (var v in playerFieldViews)
+        if (playerFieldViews != null)
         {
-            if (v == null) continue;
-            v.OnClicked -= HandlePlayerCardClicked;
-            v.OnAttackPressed -= HandleActionPressed;
-            v.OnSkillPressed -= HandleActionPressed;
+            foreach (var v in playerFieldViews)
+            {
+                if (v == null) continue;
+                v.OnClicked -= HandlePlayerCardClicked;
+                v.OnAttackPressed -= HandleActionPressed;
+                v.OnSkillPressed -= HandleActionPressed;
+            }
+        }
+
+        if (opponentFieldViews != null)
+        {
+            foreach (var v in opponentFieldViews)
+            {
+                if (v == null) continue;
+                v.OnClicked -= HandleEnemyFieldClicked;
+            }
         }
     }
 
@@ -90,6 +110,13 @@ public class BattleSceneUI : MonoBehaviour
     /// </summary>
     private void HandlePlayerCardClicked(CardView v)
     {
+        // 대상 선택 중 아군 카드 클릭 = 취소하고 새 카드 선택으로 진행.
+        if (battle != null && battle.State == BattleState.AwaitTargetSelect)
+        {
+            battle.CancelTargetSelect();
+            // state 가 AwaitCardSelect 로 전이되며 HandleStateChanged에서 하이라이트 해제됨.
+        }
+
         if (!IsSelectable(v)) return;
 
         if (openedCard == v)
@@ -119,12 +146,78 @@ public class BattleSceneUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 공격/스킬 버튼 클릭. 현재 작업 범위에선 오버레이만 닫고 끝낸다.
-    /// 후속 작업이 CardView.OnAttackPressed/OnSkillPressed를 직접 구독해 대상 선택 단계로 진입시킨다.
+    /// 공격/스킬 버튼 클릭 → 오버레이 닫고 BattleController.EnterTargetSelect 호출 → AwaitTargetSelect 진입.
+    /// 그 다음 흐름(하이라이트, 적 클릭, 실행)은 OnStateChanged/HandleEnemyFieldClicked 로 이어진다.
     /// </summary>
     private void HandleActionPressed(CardView v)
     {
+        if (v == null || v.Bound == null || v.Bound.IsDead) return;
+        if (battle == null) return;
+        if (battle.State != BattleState.AwaitCardSelect && battle.State != BattleState.AwaitActionSelect) return;
+
         CloseOpened();
+        battle.EnterTargetSelect(v.SlotIndex);
+    }
+
+    /// <summary>
+    /// 적 field 슬롯 클릭. AwaitTargetSelect 일 때만 ExecutePlayerAction 라우팅.
+    /// 그 외 상태에선 무시 (방어적 — interactable이 적절히 꺼져 있어야 정상엔 도달 안 함).
+    /// </summary>
+    private void HandleEnemyFieldClicked(CardView v)
+    {
+        if (battle == null) return;
+        if (battle.State != BattleState.AwaitTargetSelect) return;
+        if (v == null || v.Bound == null || v.Bound.IsDead) return;
+
+        battle.ExecutePlayerAction(v.SlotIndex);
+    }
+
+    /// <summary>
+    /// 상태 전이 훅. AwaitTargetSelect 진입 시 valid targets 하이라이트, 그 외 상태 진입 시 모두 클리어.
+    /// </summary>
+    private void HandleStateChanged(BattleState s)
+    {
+        if (s == BattleState.AwaitTargetSelect)
+            HighlightValidTargets(battle.PendingAttackerIdx);
+        else
+            ClearHighlights();
+    }
+
+    /// <summary>
+    /// 공격자 슬롯의 스킬 기준으로 적 field 슬롯의 valid 인덱스만 하이라이트 + interactable.
+    /// </summary>
+    private void HighlightValidTargets(int attackerIdx)
+    {
+        if (opponentFieldViews == null) return;
+        if (battle == null) { ClearHighlights(); return; }
+        if (attackerIdx < 0 || attackerIdx >= battle.Player.field.Length) { ClearHighlights(); return; }
+
+        var attacker = battle.Player.field[attackerIdx];
+        if (attacker == null || attacker.IsDead) { ClearHighlights(); return; }
+
+        var ctx = battle.BuildContext(battle.Player, attackerIdx);
+        var skill = SkillFactory.Create(attacker.data.type);
+        var valid = new HashSet<int>(skill.GetValidTargets(ctx));
+
+        for (int i = 0; i < opponentFieldViews.Length; i++)
+        {
+            var view = opponentFieldViews[i];
+            if (view == null) continue;
+            bool on = valid.Contains(i);
+            view.SetHighlight(on);
+            view.SetInteractable(on);
+        }
+    }
+
+    private void ClearHighlights()
+    {
+        if (opponentFieldViews == null) return;
+        foreach (var view in opponentFieldViews)
+        {
+            if (view == null) continue;
+            view.SetHighlight(false);
+            view.SetInteractable(false);
+        }
     }
 
     /// <summary>

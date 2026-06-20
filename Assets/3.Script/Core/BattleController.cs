@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 [DefaultExecutionOrder(-100)]
@@ -15,6 +16,9 @@ public class BattleController : MonoBehaviour
 
     /// <summary>현재 턴 번호. 양 진영 각자의 TurnStart 진입 시 1씩 증가.</summary>
     public int TurnNumber { get; private set; }
+
+    /// <summary>AwaitTargetSelect 동안 임시 저장된 공격자 슬롯. 그 외 상태에선 -1.</summary>
+    public int PendingAttackerIdx { get; private set; } = -1;
 
     public event Action<BattleState> OnStateChanged;
     public event Action<Side> OnTurnStarting;
@@ -92,6 +96,68 @@ public class BattleController : MonoBehaviour
         OnTurnStarting?.Invoke(side);
         TurnStartEffects.Apply(side);
         OnTurnStarted?.Invoke(side);
+    }
+
+    /// <summary>
+    /// 플레이어가 행동 버튼(공격/스킬)을 눌러 대상 선택 단계로 진입한다.
+    /// CurrentSide==Player + State가 AwaitCardSelect/AwaitActionSelect + 공격자 카드가 살아있어야 수락.
+    /// 수락 시 PendingAttackerIdx 기록 후 AwaitTargetSelect로 전이.
+    /// </summary>
+    public void EnterTargetSelect(int attackerIdx)
+    {
+        if (CurrentSide != Player) return;
+        if (State != BattleState.AwaitCardSelect && State != BattleState.AwaitActionSelect) return;
+        if (attackerIdx < 0 || attackerIdx >= Player.field.Length) return;
+        var card = Player.field[attackerIdx];
+        if (card == null || card.IsDead) return;
+
+        PendingAttackerIdx = attackerIdx;
+        SetState(BattleState.AwaitTargetSelect);
+    }
+
+    /// <summary>
+    /// 대상 선택 단계에서 사용자가 취소(다른 카드 선택 등)할 때 호출. PendingAttackerIdx를 비우고 AwaitCardSelect로 복귀.
+    /// AwaitTargetSelect가 아니면 무시.
+    /// </summary>
+    public void CancelTargetSelect()
+    {
+        if (State != BattleState.AwaitTargetSelect) return;
+        PendingAttackerIdx = -1;
+        SetState(BattleState.AwaitCardSelect);
+    }
+
+    /// <summary>
+    /// 대상 선택 단계에서 적 카드 클릭으로 호출. PendingAttackerIdx의 카드 스킬을 targetIdx에 실행하고 턴을 종료한다.
+    /// AwaitTargetSelect가 아니거나 valid target이 아니면 무시.
+    /// </summary>
+    public void ExecutePlayerAction(int targetIdx)
+    {
+        if (State != BattleState.AwaitTargetSelect) return;
+        if (PendingAttackerIdx < 0) return;
+
+        var attacker = Player.field[PendingAttackerIdx];
+        if (attacker == null || attacker.IsDead)
+        {
+            PendingAttackerIdx = -1;
+            SetState(BattleState.AwaitCardSelect);
+            return;
+        }
+
+        var ctx = BuildContext(Player, PendingAttackerIdx);
+        var skill = SkillFactory.Create(attacker.data.type);
+        var valid = new HashSet<int>(skill.GetValidTargets(ctx));
+        if (!valid.Contains(targetIdx))
+        {
+            Debug.LogWarning($"[Battle] target {targetIdx} not valid for attacker slot {PendingAttackerIdx}");
+            return;
+        }
+
+        SetState(BattleState.ResolveAction);
+        skill.Execute(ctx, targetIdx);
+        PendingAttackerIdx = -1;
+
+        SetState(BattleState.PlayerTurnEnd);
+        EndCurrentTurn();
     }
 
     /// <summary>
