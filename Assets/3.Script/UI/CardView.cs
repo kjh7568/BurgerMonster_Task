@@ -30,6 +30,17 @@ public class CardView : MonoBehaviour
     [SerializeField] private Button attackButton;
     [SerializeField] private Button skillButton;
 
+    [Header("Type Icon Mapping")]
+    [Tooltip("CardType ↔ Sprite 매핑. 인스펙터에서 4종(Normal/Ranged/Mighty/Healer) 쌍을 채워둠.")]
+    [SerializeField] private TypeIconPair[] typeIcons;
+
+    [Serializable]
+    public struct TypeIconPair
+    {
+        public CardType type;
+        public Sprite icon;
+    }
+
     public Side OwningSide { get; private set; }
     public int SlotIndex { get; private set; }
     public CardInstance Bound { get; private set; }
@@ -91,7 +102,15 @@ public class CardView : MonoBehaviour
 
         if (illustration != null) illustration.sprite = Bound.data.illustration;
         if (nameText != null) nameText.text = Bound.data.cardName;
+        if (typeIcon != null) typeIcon.sprite = LookupTypeIcon(Bound.data.type);
         if (hpText != null) hpText.text = $"{Bound.CurrentHP}/{Bound.data.baseHP}";
+
+        bool hasActiveSkill = Bound.Skill != null && Bound.Skill.IsActive;
+        if (skillButton != null)
+        {
+            skillButton.gameObject.SetActive(hasActiveSkill);
+            skillButton.interactable = hasActiveSkill && !Bound.SkillUsed;
+        }
         if (hpBar != null)
             hpBar.fillAmount = Bound.data.baseHP > 0
                 ? (float)Bound.CurrentHP / Bound.data.baseHP
@@ -128,5 +147,13 @@ public class CardView : MonoBehaviour
     public void SetInteractable(bool on)
     {
         if (button != null) button.interactable = on && IsFaceUp;
+    }
+
+    private Sprite LookupTypeIcon(CardType t)
+    {
+        if (typeIcons == null) return null;
+        foreach (var p in typeIcons)
+            if (p.type == t) return p.icon;
+        return null;
     }
 }

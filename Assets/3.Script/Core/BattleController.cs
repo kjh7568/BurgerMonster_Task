@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum PendingActionKind { Attack, Skill }
+
 [DefaultExecutionOrder(-100)]
 public class BattleController : MonoBehaviour
 {
@@ -22,20 +24,17 @@ public class BattleController : MonoBehaviour
     /// <summary>AwaitTargetSelect 동안 임시 저장된 공격자 슬롯. 그 외 상태에선 -1.</summary>
     public int PendingAttackerIdx { get; private set; } = -1;
 
+    /// <summary>AwaitTargetSelect로 진입한 행동 종류. Attack 또는 Skill.</summary>
+    public PendingActionKind PendingActionKind { get; private set; } = PendingActionKind.Attack;
+
     public event Action<BattleState> OnStateChanged;
     public event Action<Side> OnTurnStarting;
     public event Action<Side> OnTurnStarted;
     public event Action<Side> OnTurnEnded;
     public event Action<Side> OnGameEnded;
 
-    /// <summary>
-    /// Unity 라이프사이클 진입점. 씬 로드 후 자동 호출되어 Init으로 전투 초기화를 위임.
-    /// </summary>
     private void Start() => Init();
 
-    /// <summary>
-    /// 양 진영 Side를 생성하고 상태를 PlayerTurnStart로 진입시켜 전투를 시작한다. Start에서 1회 호출.
-    /// </summary>
     private void Init()
     {
         State = BattleState.Init;
@@ -45,12 +44,6 @@ public class BattleController : MonoBehaviour
         SetState(BattleState.PlayerTurnStart);
     }
 
-    /// <summary>
-    /// 스킬 실행에 필요한 BattleContext를 조립한다. 공격 진영을 기준으로 방어 진영을 자동 결정하고 공용 Resolver를 주입. 카드 선택/AI 행동 시 ICardSkill 호출 직전에 사용.
-    /// </summary>
-    /// <param name="attacker">공격 측 진영. Player 또는 Opponent 중 하나여야 한다.</param>
-    /// <param name="attackerIdx">공격 카드의 field 슬롯 인덱스(0~2).</param>
-    /// <returns>내용이 채워진 BattleContext. ICardSkill.GetValidTargets·Execute에 그대로 전달.</returns>
     public BattleContext BuildContext(Side attacker, int attackerIdx)
     {
         return new BattleContext
@@ -62,10 +55,6 @@ public class BattleController : MonoBehaviour
         };
     }
 
-    /// <summary>
-    /// FSM 상태를 전이시키고 OnStateChanged 이벤트를 발행한다. 턴 시작 상태일 경우 CurrentSide를 갱신하고 후속 상태로 자동 연쇄 전이. 내부 전용.
-    /// </summary>
-    /// <param name="s">전이할 다음 BattleState.</param>
     private void SetState(BattleState s)
     {
         State = s;
@@ -89,10 +78,6 @@ public class BattleController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 턴 시작 시퀀스. OnTurnStarting 발행 → TurnStartEffects.Apply(힐러 회복 등) → OnTurnStarted 발행.
-    /// UI는 OnTurnStarting 직후 뷰를 갱신하면 회복 결과를 반영한 상태에서 OnTurnStarted를 받게 된다.
-    /// </summary>
     private void RunTurnStart(Side side)
     {
         OnTurnStarting?.Invoke(side);
@@ -101,11 +86,11 @@ public class BattleController : MonoBehaviour
     }
 
     /// <summary>
-    /// 플레이어가 행동 버튼(공격/스킬)을 눌러 대상 선택 단계로 진입한다.
-    /// CurrentSide==Player + State가 AwaitCardSelect/AwaitActionSelect + 공격자 카드가 살아있어야 수락.
-    /// 수락 시 PendingAttackerIdx 기록 후 AwaitTargetSelect로 전이.
+    /// 플레이어 행동(공격/스킬)으로 대상 선택 단계 진입. kind에 따라 valid 후보 진영이 결정됨(UI 책임).
+    /// CurrentSide==Player + State 가 AwaitCardSelect/AwaitActionSelect + 공격자 살아있어야 수락.
+    /// Skill kind 진입 시 SkillUsed/IsActive 가드는 호출자(UI)가 책임.
     /// </summary>
-    public void EnterTargetSelect(int attackerIdx)
+    public void EnterTargetSelect(int attackerIdx, PendingActionKind kind)
     {
         if (CurrentSide != Player) return;
         if (State != BattleState.AwaitCardSelect && State != BattleState.AwaitActionSelect) return;
@@ -114,23 +99,21 @@ public class BattleController : MonoBehaviour
         if (card == null || card.IsDead) return;
 
         PendingAttackerIdx = attackerIdx;
+        PendingActionKind = kind;
         SetState(BattleState.AwaitTargetSelect);
     }
 
-    /// <summary>
-    /// 대상 선택 단계에서 사용자가 취소(다른 카드 선택 등)할 때 호출. PendingAttackerIdx를 비우고 AwaitCardSelect로 복귀.
-    /// AwaitTargetSelect가 아니면 무시.
-    /// </summary>
     public void CancelTargetSelect()
     {
         if (State != BattleState.AwaitTargetSelect) return;
         PendingAttackerIdx = -1;
+        PendingActionKind = PendingActionKind.Attack;
         SetState(BattleState.AwaitCardSelect);
     }
 
     /// <summary>
-    /// 대상 선택 단계에서 적 카드 클릭으로 호출. PendingAttackerIdx의 카드 스킬을 targetIdx에 실행하고 턴을 종료한다.
-    /// AwaitTargetSelect가 아니거나 valid target이 아니면 무시.
+    /// AwaitTargetSelect에서 대상 클릭 시 호출. PendingActionKind에 따라 Attack 또는 Skill 분기.
+    /// Skill 실행 후 attacker.SkillUsed=true.
     /// </summary>
     public void ExecutePlayerAction(int targetIdx)
     {
@@ -146,16 +129,28 @@ public class BattleController : MonoBehaviour
         }
 
         var ctx = BuildContext(Player, PendingAttackerIdx);
-        var skill = SkillFactory.Create(attacker.data.type);
-        var valid = new HashSet<int>(skill.GetValidTargets(ctx));
+        HashSet<int> valid;
+        if (PendingActionKind == PendingActionKind.Attack)
+            valid = new HashSet<int>(attacker.Attack.GetValidTargets(ctx));
+        else
+            valid = new HashSet<int>(attacker.Skill.GetValidTargets(ctx));
+
         if (!valid.Contains(targetIdx))
         {
-            Debug.LogWarning($"[Battle] target {targetIdx} not valid for attacker slot {PendingAttackerIdx}");
+            Debug.LogWarning($"[Battle] target {targetIdx} not valid for attacker slot {PendingAttackerIdx} ({PendingActionKind})");
             return;
         }
 
         SetState(BattleState.ResolveAction);
-        skill.Execute(ctx, targetIdx);
+        if (PendingActionKind == PendingActionKind.Attack)
+        {
+            attacker.Attack.Execute(ctx, targetIdx);
+        }
+        else
+        {
+            attacker.Skill.Execute(ctx, targetIdx);
+            attacker.SkillUsed = true;
+        }
         PendingAttackerIdx = -1;
 
         SetState(BattleState.PlayerTurnEnd);
@@ -163,9 +158,33 @@ public class BattleController : MonoBehaviour
     }
 
     /// <summary>
-    /// AI가 상대 턴(OpponentTurnAction)에서 결정한 (attacker, target) 페어를 실행한다.
-    /// ExecutePlayerAction과 대칭: valid target 검증 → 스킬 실행 → ResolveAction → OpponentTurnEnd → EndCurrentTurn.
-    /// OpponentTurnAction이 아니거나 attacker/target이 유효하지 않으면 무시.
+    /// 대상 없는 액티브 스킬(TargetMode=None) 즉시 발동 — 카드 선택 단계에서 바로 호출.
+    /// EnterTargetSelect 우회 경로. 도발/일제사격용.
+    /// </summary>
+    public void ExecutePlayerSkillImmediate(int attackerIdx)
+    {
+        if (CurrentSide != Player) return;
+        if (State != BattleState.AwaitCardSelect && State != BattleState.AwaitActionSelect) return;
+        if (attackerIdx < 0 || attackerIdx >= Player.field.Length) return;
+
+        var attacker = Player.field[attackerIdx];
+        if (attacker == null || attacker.IsDead) return;
+        var skill = attacker.Skill;
+        if (skill == null || !skill.IsActive) return;
+        if (skill.TargetMode != SkillTargetMode.None) return;
+        if (attacker.SkillUsed) return;
+
+        SetState(BattleState.ResolveAction);
+        var ctx = BuildContext(Player, attackerIdx);
+        skill.Execute(ctx, -1);
+        attacker.SkillUsed = true;
+
+        SetState(BattleState.PlayerTurnEnd);
+        EndCurrentTurn();
+    }
+
+    /// <summary>
+    /// AI가 결정한 (attacker, target) 페어를 일반 공격으로 실행. AI는 스킬을 사용하지 않음(별도 작업).
     /// </summary>
     public void ExecuteOpponentAction(int attackerIdx, int targetIdx)
     {
@@ -176,8 +195,8 @@ public class BattleController : MonoBehaviour
         if (attacker == null || attacker.IsDead) return;
 
         var ctx = BuildContext(Opponent, attackerIdx);
-        var skill = SkillFactory.Create(attacker.data.type);
-        var valid = new HashSet<int>(skill.GetValidTargets(ctx));
+        var attack = attacker.Attack;
+        var valid = new HashSet<int>(attack.GetValidTargets(ctx));
         if (!valid.Contains(targetIdx))
         {
             Debug.LogWarning($"[Battle/AI] target {targetIdx} not valid for opponent slot {attackerIdx}");
@@ -185,15 +204,12 @@ public class BattleController : MonoBehaviour
         }
 
         SetState(BattleState.ResolveAction);
-        skill.Execute(ctx, targetIdx);
+        attack.Execute(ctx, targetIdx);
 
         SetState(BattleState.OpponentTurnEnd);
         EndCurrentTurn();
     }
 
-    /// <summary>
-    /// 현재 턴을 종료하고 상대 진영의 턴 시작 상태로 전이한다. 게임 종료 조건을 먼저 검사하므로 종료 시 전이는 일어나지 않는다. UI의 턴 종료 버튼/AI 행동 완료 시점에 호출.
-    /// </summary>
     public void EndCurrentTurn()
     {
         OnTurnEnded?.Invoke(CurrentSide);
@@ -203,10 +219,6 @@ public class BattleController : MonoBehaviour
             : BattleState.PlayerTurnStart);
     }
 
-    /// <summary>
-    /// 양 진영의 패배 조건을 확인하고 한 쪽이 패배했으면 Winner를 정한 뒤 GameEnd 상태로 전이, OnGameEnded를 발행한다. 매 턴 종료 시점에 호출.
-    /// </summary>
-    /// <returns>게임이 종료되었으면 true, 아직 진행 중이면 false.</returns>
     private bool CheckGameEnd()
     {
         if (Player.IsDefeated || Opponent.IsDefeated)

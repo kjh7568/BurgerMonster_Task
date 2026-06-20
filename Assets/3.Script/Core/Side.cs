@@ -54,4 +54,15 @@ public class Side
     /// <returns>살아있는 카드의 슬롯 인덱스 시퀀스(IEnumerable, lazy).</returns>
     public IEnumerable<int> AliveIndices() =>
         Enumerable.Range(0, field.Length).Where(i => field[i] != null && !field[i].IsDead);
+
+    /// <summary>
+    /// 일반 공격이 valid target으로 삼을 수 있는 슬롯 인덱스. 살아있는 도발 카드가 한 장이라도 있으면 그것만, 없으면 살아있는 전체.
+    /// 양 진영 ICardAttack 구현체가 공통으로 호출 — 도발 메커닉 단일 진입점.
+    /// </summary>
+    public IEnumerable<int> GetAttackPriorityIndices()
+    {
+        var alive = AliveIndices().ToList();
+        var taunting = alive.Where(i => field[i].IsTaunting).ToList();
+        return taunting.Count > 0 ? taunting : (IEnumerable<int>)alive;
+    }
 }

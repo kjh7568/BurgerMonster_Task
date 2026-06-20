@@ -1,9 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MightySkill : ICardSkill
+/// <summary>
+/// 본 타겟 상호 데미지 + 인접 살아있는 카드 1명에 atkHP의 0.5배 스플래시.
+/// 도발 우선 적용(메인 타겟만). 스플래시는 인접만 보고 도발 무시.
+/// </summary>
+public class MightyAttack : ICardAttack
 {
-    public IEnumerable<int> GetValidTargets(BattleContext c) => c.defenderSide.AliveIndices();
+    public IEnumerable<int> GetValidTargets(BattleContext c) =>
+        c.defenderSide.GetAttackPriorityIndices();
 
     public void Execute(BattleContext c, int targetIdx)
     {

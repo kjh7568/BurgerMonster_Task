@@ -1,26 +1,22 @@
 using System.Collections.Generic;
 
+/// <summary>
+/// 액티브 스킬 시 대상 진영 표시.
+/// None: 대상 없음(자기 시전 또는 AoE).
+/// Enemy: 적 field 1슬롯 선택.
+/// Ally: 아군 field 1슬롯 선택(자기 포함 가능).
+/// </summary>
+public enum SkillTargetMode { None, Enemy, Ally }
+
+/// <summary>
+/// 카드 생존 중 한 번만 사용 가능한 별도 능력.
+/// IsActive=true: 플레이어 버튼/UI로 발동.
+/// IsActive=false: 패시브, 게임 이벤트(데미지·턴 시작 등)로 자동 트리거. Execute 호출되지 않을 수 있음.
+/// </summary>
 public interface ICardSkill
 {
-    /// <summary>
-    /// 이 스킬로 효과를 적용할 수 있는 슬롯 인덱스를 열거한다.
-    /// </summary>
-    /// <param name="ctx">현재 전투 컨텍스트. 공격 측/방어 측/위치 정보가 들어 있다.</param>
-    /// <returns>효과 대상 진영(보통 ctx.defenderSide, 자가 효과 스킬이라면 ctx.attackerSide)의 field 배열 인덱스. 지연 평가 가능한 시퀀스.</returns>
+    bool IsActive { get; }
+    SkillTargetMode TargetMode { get; }
     IEnumerable<int> GetValidTargets(BattleContext ctx);
-
-    /// <summary>
-    /// 선택된 타겟에 스킬 효과를 실제로 적용한다.
-    /// </summary>
-    /// <param name="ctx">현재 전투 컨텍스트.</param>
-    /// <param name="targetIndex">GetValidTargets에서 받은 슬롯 인덱스. 효과 대상 진영의 field 배열에서 사용된다.</param>
     void Execute(BattleContext ctx, int targetIndex);
-}
-
-public class BattleContext
-{
-    public Side attackerSide;
-    public int attackerIndex;
-    public Side defenderSide;
-    public DamageResolver resolver;
 }

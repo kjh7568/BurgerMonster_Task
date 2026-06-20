@@ -3,10 +3,12 @@ using UnityEngine;
 
 /// <summary>
 /// 양 진영 field 3슬롯(앞면) + standby 3슬롯(뒷면) 총 12장의 CardView를 인스턴스화하고 Bind한다.
-/// 추가로 플레이어 field 카드의 클릭/공격/스킬 입력을 받아 액션 오버레이 토글을 관장한다.
-/// 한 번에 한 카드의 오버레이만 켜져 있고, 같은 카드 재클릭은 닫기, 다른 카드 클릭은 전환.
-/// 공격/스킬 버튼은 오버레이만 닫고 이벤트 발화는 CardView가 직접 — 후속 작업(대상 선택)이 그 이벤트를 구독해서 흐름을 이어받는다.
-/// standby→field 이동, 대상 선택, ExecutePlayerAction 호출은 모두 후속 작업의 책임.
+/// 추가로 플레이어 입력 라우터 역할:
+///   - 아군 카드 탭 → 액션 오버레이 토글
+///   - 공격 버튼 → 적 field 대상 선택
+///   - 스킬 버튼 → Skill.TargetMode 에 따라 즉시 발동(None) / 적 대상 선택(Enemy) / 아군 대상 선택(Ally)
+///   - 적/아군 카드 탭 → 대상 선택 단계에서 ExecutePlayerAction 라우팅
+/// 그 외 게임 상태 이벤트(턴 시작·데미지·사망·자동 배치)를 받아 CardView 갱신.
 /// </summary>
 public class BattleSceneUI : MonoBehaviour
 {
@@ -50,8 +52,8 @@ public class BattleSceneUI : MonoBehaviour
         {
             if (v == null) continue;
             v.OnClicked += HandlePlayerCardClicked;
-            v.OnAttackPressed += HandleActionPressed;
-            v.OnSkillPressed += HandleActionPressed;
+            v.OnAttackPressed += HandleAttackPressed;
+            v.OnSkillPressed += HandleSkillPressed;
         }
 
         foreach (var v in opponentFieldViews)
@@ -88,8 +90,8 @@ public class BattleSceneUI : MonoBehaviour
             {
                 if (v == null) continue;
                 v.OnClicked -= HandlePlayerCardClicked;
-                v.OnAttackPressed -= HandleActionPressed;
-                v.OnSkillPressed -= HandleActionPressed;
+                v.OnAttackPressed -= HandleAttackPressed;
+                v.OnSkillPressed -= HandleSkillPressed;
             }
         }
 
@@ -104,17 +106,23 @@ public class BattleSceneUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 플레이어 field 카드 클릭 시 액션 오버레이 토글.
-    /// 선택 불가 카드(죽음/비-플레이어/뒷면)거나 AwaitCardSelect 상태가 아니면 무시.
-    /// 같은 카드 재클릭은 닫기, 다른 카드 클릭은 이전 닫고 새로 열기.
+    /// 플레이어 field 카드 클릭. 상황별 분기:
+    ///   - AwaitTargetSelect + 아군 타깃 스킬 진행 중: 클릭한 아군을 대상으로 ExecutePlayerAction.
+    ///   - AwaitTargetSelect + 그 외: 취소 후 새 선택 흐름.
+    ///   - AwaitCardSelect: 액션 오버레이 토글(같은 카드 닫기 / 다른 카드 전환).
     /// </summary>
     private void HandlePlayerCardClicked(CardView v)
     {
-        // 대상 선택 중 아군 카드 클릭 = 취소하고 새 카드 선택으로 진행.
-        if (battle != null && battle.State == BattleState.AwaitTargetSelect)
+        if (battle == null) return;
+
+        if (battle.State == BattleState.AwaitTargetSelect)
         {
+            if (IsAllyTargetSkillInProgress() && v != null && v.Bound != null && !v.Bound.IsDead)
+            {
+                battle.ExecutePlayerAction(v.SlotIndex);
+                return;
+            }
             battle.CancelTargetSelect();
-            // state 가 AwaitCardSelect 로 전이되며 HandleStateChanged에서 하이라이트 해제됨.
         }
 
         if (!IsSelectable(v)) return;
@@ -139,30 +147,52 @@ public class BattleSceneUI : MonoBehaviour
         return true;
     }
 
+    private bool IsAllyTargetSkillInProgress()
+    {
+        if (battle == null) return false;
+        if (battle.PendingActionKind != PendingActionKind.Skill) return false;
+        int idx = battle.PendingAttackerIdx;
+        if (idx < 0 || idx >= battle.Player.field.Length) return false;
+        var attacker = battle.Player.field[idx];
+        if (attacker == null || attacker.Skill == null) return false;
+        return attacker.Skill.TargetMode == SkillTargetMode.Ally;
+    }
+
     private void CloseOpened()
     {
         if (openedCard != null) openedCard.HideActionPanel();
         openedCard = null;
     }
 
-    /// <summary>
-    /// 공격/스킬 버튼 클릭 → 오버레이 닫고 BattleController.EnterTargetSelect 호출 → AwaitTargetSelect 진입.
-    /// 그 다음 흐름(하이라이트, 적 클릭, 실행)은 OnStateChanged/HandleEnemyFieldClicked 로 이어진다.
-    /// </summary>
-    private void HandleActionPressed(CardView v)
+    /// <summary>공격 버튼 → 적 대상 선택 단계 진입.</summary>
+    private void HandleAttackPressed(CardView v)
     {
         if (v == null || v.Bound == null || v.Bound.IsDead) return;
         if (battle == null) return;
         if (battle.State != BattleState.AwaitCardSelect && battle.State != BattleState.AwaitActionSelect) return;
 
         CloseOpened();
-        battle.EnterTargetSelect(v.SlotIndex);
+        battle.EnterTargetSelect(v.SlotIndex, PendingActionKind.Attack);
     }
 
-    /// <summary>
-    /// 적 field 슬롯 클릭. AwaitTargetSelect 일 때만 ExecutePlayerAction 라우팅.
-    /// 그 외 상태에선 무시 (방어적 — interactable이 적절히 꺼져 있어야 정상엔 도달 안 함).
-    /// </summary>
+    /// <summary>스킬 버튼 → Skill.TargetMode 따라 즉시 발동 또는 대상 선택 진입.</summary>
+    private void HandleSkillPressed(CardView v)
+    {
+        if (v == null || v.Bound == null || v.Bound.IsDead) return;
+        if (battle == null) return;
+        if (battle.State != BattleState.AwaitCardSelect && battle.State != BattleState.AwaitActionSelect) return;
+
+        var skill = v.Bound.Skill;
+        if (skill == null || !skill.IsActive || v.Bound.SkillUsed) return;
+
+        CloseOpened();
+        if (skill.TargetMode == SkillTargetMode.None)
+            battle.ExecutePlayerSkillImmediate(v.SlotIndex);
+        else
+            battle.EnterTargetSelect(v.SlotIndex, PendingActionKind.Skill);
+    }
+
+    /// <summary>적 field 슬롯 클릭 → AwaitTargetSelect 일 때만 라우팅.</summary>
     private void HandleEnemyFieldClicked(CardView v)
     {
         if (battle == null) return;
@@ -173,7 +203,8 @@ public class BattleSceneUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 상태 전이 훅. AwaitTargetSelect 진입 시 valid targets 하이라이트, 그 외 상태 진입 시 모두 클리어.
+    /// 상태 전이 훅. AwaitTargetSelect 진입 시 PendingActionKind 에 따라 적 또는 아군 진영을 하이라이트.
+    /// 그 외 상태 진입 시 모두 클리어.
     /// </summary>
     private void HandleStateChanged(BattleState s)
     {
@@ -184,11 +215,10 @@ public class BattleSceneUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 공격자 슬롯의 스킬 기준으로 적 field 슬롯의 valid 인덱스만 하이라이트 + interactable.
+    /// 공격이면 적 field, 스킬이면 Skill.TargetMode 에 따라 적/아군 field 의 valid 인덱스만 하이라이트.
     /// </summary>
     private void HighlightValidTargets(int attackerIdx)
     {
-        if (opponentFieldViews == null) return;
         if (battle == null) { ClearHighlights(); return; }
         if (attackerIdx < 0 || attackerIdx >= battle.Player.field.Length) { ClearHighlights(); return; }
 
@@ -196,37 +226,65 @@ public class BattleSceneUI : MonoBehaviour
         if (attacker == null || attacker.IsDead) { ClearHighlights(); return; }
 
         var ctx = battle.BuildContext(battle.Player, attackerIdx);
-        var skill = SkillFactory.Create(attacker.data.type);
-        var valid = new HashSet<int>(skill.GetValidTargets(ctx));
 
-        for (int i = 0; i < opponentFieldViews.Length; i++)
+        HashSet<int> valid;
+        CardView[] targetViews;
+        bool targetIsEnemy;
+
+        if (battle.PendingActionKind == PendingActionKind.Attack)
         {
-            var view = opponentFieldViews[i];
+            valid = new HashSet<int>(attacker.Attack.GetValidTargets(ctx));
+            targetViews = opponentFieldViews;
+            targetIsEnemy = true;
+        }
+        else
+        {
+            var skill = attacker.Skill;
+            valid = new HashSet<int>(skill.GetValidTargets(ctx));
+            targetViews = skill.TargetMode == SkillTargetMode.Ally ? playerFieldViews : opponentFieldViews;
+            targetIsEnemy = skill.TargetMode != SkillTargetMode.Ally;
+        }
+
+        // 양쪽 모두 일단 클리어한 뒤 대상 진영에만 적용.
+        ClearHighlightsInternal();
+
+        if (targetViews == null) return;
+        for (int i = 0; i < targetViews.Length; i++)
+        {
+            var view = targetViews[i];
             if (view == null) continue;
             bool on = valid.Contains(i);
             view.SetHighlight(on);
-            view.SetInteractable(on);
+            if (targetIsEnemy) view.SetInteractable(on);
+            // 아군 타깃: 플레이어 카드 interactable 은 그대로 유지(이미 true) — HandlePlayerCardClicked가 분기.
         }
     }
 
-    private void ClearHighlights()
+    private void ClearHighlights() => ClearHighlightsInternal();
+
+    private void ClearHighlightsInternal()
     {
-        if (opponentFieldViews == null) return;
-        foreach (var view in opponentFieldViews)
+        if (opponentFieldViews != null)
         {
-            if (view == null) continue;
-            view.SetHighlight(false);
-            view.SetInteractable(false);
+            foreach (var view in opponentFieldViews)
+            {
+                if (view == null) continue;
+                view.SetHighlight(false);
+                view.SetInteractable(false);
+            }
+        }
+        if (playerFieldViews != null)
+        {
+            foreach (var view in playerFieldViews)
+            {
+                if (view == null) continue;
+                view.SetHighlight(false);
+                // 플레이어 interactable 은 건드리지 않음(평소 항상 활성).
+            }
         }
     }
 
-    /// <summary>
-    /// 턴 시작 직전 호출. 힐러 회복 등 TurnStartEffects가 곧 HP를 변경하므로 양 진영 모든 field 카드를 일괄 Refresh.
-    /// </summary>
-    private void HandleTurnStarting(Side side)
-    {
-        RefreshAllField();
-    }
+    private void HandleTurnStarting(Side side) => RefreshAllField();
 
     private void HandleDamageDealt(Side side, int slotIdx, int amount)
     {
@@ -236,16 +294,10 @@ public class BattleSceneUI : MonoBehaviour
 
     private void HandleCardDied(Side side, int slotIdx, CardInstance dyingCard)
     {
-        // OnCardDied는 field[slotIdx] = null 직전에 발화 — 죽은 카드 상태로 한 번 보여줘서 deadOverlay 노출.
         var view = GetFieldView(side, slotIdx);
         if (view != null) view.Refresh();
     }
 
-    /// <summary>
-    /// standby의 한 장이 field 빈 슬롯으로 자동 배치됐을 때 호출.
-    /// 1) field 슬롯 CardView를 새 인스턴스로 Rebind(앞면).
-    /// 2) 비워진 standby 슬롯 CardView를 null Bind 해 사라지게 함.
-    /// </summary>
     private void HandleCardSpawned(Side side, int fieldSlot, CardInstance newCard, int fromStandbyIdx)
     {
         var fieldView = GetFieldView(side, fieldSlot);
@@ -261,10 +313,7 @@ public class BattleSceneUI : MonoBehaviour
         if (opponentFieldViews != null) foreach (var v in opponentFieldViews) v?.Refresh();
     }
 
-    /// <summary>
-    /// 외부(AIController 등)에서 임의 진영·슬롯의 field CardView 하이라이트를 토글.
-    /// 대상 선택 하이라이트와는 별개 — 이 호출은 정책적이라 OnStateChanged 흐름에 영향받지 않는다.
-    /// </summary>
+    /// <summary>외부(AIController 등)에서 임의 진영·슬롯의 field CardView 하이라이트를 토글.</summary>
     public void SetFieldHighlight(Side side, int slotIdx, bool on)
     {
         var view = GetFieldView(side, slotIdx);
@@ -285,10 +334,6 @@ public class BattleSceneUI : MonoBehaviour
         return arr[slotIdx];
     }
 
-    /// <summary>
-    /// slots 각각에 cardViewPrefab을 자식으로 인스턴스화하고 슬롯 전체를 채우도록 RectTransform을 stretch 처리.
-    /// cards 범위를 넘는 인덱스는 null로 Bind해 CardView가 스스로 비활성화하도록 둔다.
-    /// </summary>
     private CardView[] SpawnRow(Side side, CardInstance[] cards, RectTransform[] slots, bool faceUp)
     {
         var views = new CardView[slots.Length];

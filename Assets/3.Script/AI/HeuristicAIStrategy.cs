@@ -25,7 +25,7 @@ public class HeuristicAIStrategy : IAIStrategy
         foreach (int atkIdx in atkSide.AliveIndices())
         {
             var atkCard = atkSide.field[atkIdx];
-            var skill = SkillFactory.Create(atkCard.data.type);
+            var attack = atkCard.Attack;
             var ctx = new BattleContext
             {
                 attackerSide = atkSide,
@@ -34,7 +34,7 @@ public class HeuristicAIStrategy : IAIStrategy
                 resolver = battle.Resolver,
             };
 
-            foreach (int tgtIdx in skill.GetValidTargets(ctx))
+            foreach (int tgtIdx in attack.GetValidTargets(ctx))
             {
                 var defCard = defSide.field[tgtIdx];
                 if (defCard == null) continue;

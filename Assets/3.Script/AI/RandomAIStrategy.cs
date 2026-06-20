@@ -21,7 +21,7 @@ public class RandomAIStrategy : IAIStrategy
 
         int atkIdx = aliveAttackers[Random.Range(0, aliveAttackers.Count)];
         var atkCard = attacker.field[atkIdx];
-        var skill = SkillFactory.Create(atkCard.data.type);
+        var attack = atkCard.Attack;
 
         var ctx = new BattleContext
         {
@@ -31,7 +31,7 @@ public class RandomAIStrategy : IAIStrategy
             resolver = battle.Resolver,
         };
 
-        var targets = new List<int>(skill.GetValidTargets(ctx));
+        var targets = new List<int>(attack.GetValidTargets(ctx));
         if (targets.Count == 0) return null;
 
         int tgtIdx = targets[Random.Range(0, targets.Count)];

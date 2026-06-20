@@ -1,8 +1,13 @@
 using System.Collections.Generic;
 
-public class NormalSkill : ICardSkill
+/// <summary>
+/// 상호 데미지: 공격자/방어자가 서로의 현재 HP만큼 동시 피해.
+/// 도발 카드가 방어 진영에 있으면 그쪽으로 강제(GetAttackPriorityIndices).
+/// </summary>
+public class NormalAttack : ICardAttack
 {
-    public IEnumerable<int> GetValidTargets(BattleContext c) => c.defenderSide.AliveIndices();
+    public IEnumerable<int> GetValidTargets(BattleContext c) =>
+        c.defenderSide.GetAttackPriorityIndices();
 
     public void Execute(BattleContext c, int targetIdx)
     {
