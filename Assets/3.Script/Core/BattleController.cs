@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ public enum PendingActionKind { Attack, Skill }
 public class BattleController : MonoBehaviour
 {
     [SerializeField] BattleConfigSO config;
+    [SerializeField] BattleSceneUI sceneUI; // 애니메이션 오케스트레이션용. null 이어도 게임 로직은 동작.
 
     public BattleConfigSO Config => config;
 
@@ -18,13 +20,8 @@ public class BattleController : MonoBehaviour
     public Side Winner { get; private set; }
     public DamageResolver Resolver { get; private set; }
 
-    /// <summary>현재 턴 번호. 양 진영 각자의 TurnStart 진입 시 1씩 증가.</summary>
     public int TurnNumber { get; private set; }
-
-    /// <summary>AwaitTargetSelect 동안 임시 저장된 공격자 슬롯. 그 외 상태에선 -1.</summary>
     public int PendingAttackerIdx { get; private set; } = -1;
-
-    /// <summary>AwaitTargetSelect로 진입한 행동 종류. Attack 또는 Skill.</summary>
     public PendingActionKind PendingActionKind { get; private set; } = PendingActionKind.Attack;
 
     public event Action<BattleState> OnStateChanged;
@@ -81,15 +78,10 @@ public class BattleController : MonoBehaviour
     private void RunTurnStart(Side side)
     {
         OnTurnStarting?.Invoke(side);
-        TurnStartEffects.Apply(side);
+        TurnStartEffects.Apply(side, Resolver);
         OnTurnStarted?.Invoke(side);
     }
 
-    /// <summary>
-    /// 플레이어 행동(공격/스킬)으로 대상 선택 단계 진입. kind에 따라 valid 후보 진영이 결정됨(UI 책임).
-    /// CurrentSide==Player + State 가 AwaitCardSelect/AwaitActionSelect + 공격자 살아있어야 수락.
-    /// Skill kind 진입 시 SkillUsed/IsActive 가드는 호출자(UI)가 책임.
-    /// </summary>
     public void EnterTargetSelect(int attackerIdx, PendingActionKind kind)
     {
         if (CurrentSide != Player) return;
@@ -111,40 +103,43 @@ public class BattleController : MonoBehaviour
         SetState(BattleState.AwaitCardSelect);
     }
 
-    /// <summary>
-    /// AwaitTargetSelect에서 대상 클릭 시 호출. PendingActionKind에 따라 Attack 또는 Skill 분기.
-    /// Skill 실행 후 attacker.SkillUsed=true.
-    /// </summary>
+    /// <summary>플레이어 액션 실행. 공격이면 lunge 애니메이션 후 데미지 → 복귀. 스킬은 애니 없이 즉시.</summary>
     public void ExecutePlayerAction(int targetIdx)
     {
         if (State != BattleState.AwaitTargetSelect) return;
         if (PendingAttackerIdx < 0) return;
+        StartCoroutine(ResolvePlayerActionCoroutine(targetIdx));
+    }
 
-        var attacker = Player.field[PendingAttackerIdx];
+    private IEnumerator ResolvePlayerActionCoroutine(int targetIdx)
+    {
+        var attackerIdx = PendingAttackerIdx;
+        var kind = PendingActionKind;
+        var attacker = Player.field[attackerIdx];
         if (attacker == null || attacker.IsDead)
         {
             PendingAttackerIdx = -1;
             SetState(BattleState.AwaitCardSelect);
-            return;
+            yield break;
         }
 
-        var ctx = BuildContext(Player, PendingAttackerIdx);
-        HashSet<int> valid;
-        if (PendingActionKind == PendingActionKind.Attack)
-            valid = new HashSet<int>(attacker.Attack.GetValidTargets(ctx));
-        else
-            valid = new HashSet<int>(attacker.Skill.GetValidTargets(ctx));
-
+        var ctx = BuildContext(Player, attackerIdx);
+        HashSet<int> valid = kind == PendingActionKind.Attack
+            ? new HashSet<int>(attacker.Attack.GetValidTargets(ctx))
+            : new HashSet<int>(attacker.Skill.GetValidTargets(ctx));
         if (!valid.Contains(targetIdx))
         {
-            Debug.LogWarning($"[Battle] target {targetIdx} not valid for attacker slot {PendingAttackerIdx} ({PendingActionKind})");
-            return;
+            Debug.LogWarning($"[Battle] target {targetIdx} not valid for attacker slot {attackerIdx} ({kind})");
+            yield break;
         }
 
         SetState(BattleState.ResolveAction);
-        if (PendingActionKind == PendingActionKind.Attack)
+
+        if (kind == PendingActionKind.Attack)
         {
+            if (sceneUI != null) yield return sceneUI.PlayAttackLunge(Player, attackerIdx, Opponent, targetIdx);
             attacker.Attack.Execute(ctx, targetIdx);
+            if (sceneUI != null) yield return sceneUI.PlayReturnToSlot(Player, attackerIdx);
         }
         else
         {
@@ -153,14 +148,14 @@ public class BattleController : MonoBehaviour
         }
         PendingAttackerIdx = -1;
 
+        // 복귀 후(또는 스킬 실행 후) 누적된 사망/스폰 시각 처리 — 카드 교체 애니메이션.
+        if (sceneUI != null) yield return sceneUI.ProcessPendingSpawns();
+
         SetState(BattleState.PlayerTurnEnd);
         EndCurrentTurn();
     }
 
-    /// <summary>
-    /// 대상 없는 액티브 스킬(TargetMode=None) 즉시 발동 — 카드 선택 단계에서 바로 호출.
-    /// EnterTargetSelect 우회 경로. 도발/일제사격용.
-    /// </summary>
+    /// <summary>대상 없는 액티브 스킬(도발/일제사격) 즉시 발동. lunge 애니는 없지만 스폰 큐는 정리해야 하므로 코루틴.</summary>
     public void ExecutePlayerSkillImmediate(int attackerIdx)
     {
         if (CurrentSide != Player) return;
@@ -174,25 +169,37 @@ public class BattleController : MonoBehaviour
         if (skill.TargetMode != SkillTargetMode.None) return;
         if (attacker.SkillUsed) return;
 
+        StartCoroutine(ResolvePlayerSkillImmediateCoroutine(attackerIdx));
+    }
+
+    private IEnumerator ResolvePlayerSkillImmediateCoroutine(int attackerIdx)
+    {
+        var attacker = Player.field[attackerIdx];
+        if (attacker == null || attacker.IsDead) yield break;
+
         SetState(BattleState.ResolveAction);
         var ctx = BuildContext(Player, attackerIdx);
-        skill.Execute(ctx, -1);
+        attacker.Skill.Execute(ctx, -1);
         attacker.SkillUsed = true;
+
+        if (sceneUI != null) yield return sceneUI.ProcessPendingSpawns();
 
         SetState(BattleState.PlayerTurnEnd);
         EndCurrentTurn();
     }
 
-    /// <summary>
-    /// AI가 결정한 (attacker, target) 페어를 일반 공격으로 실행. AI는 스킬을 사용하지 않음(별도 작업).
-    /// </summary>
+    /// <summary>AI 액션 실행. 플레이어 액션과 대칭 — lunge 애니 후 데미지 → 복귀.</summary>
     public void ExecuteOpponentAction(int attackerIdx, int targetIdx)
     {
         if (State != BattleState.OpponentTurnAction) return;
         if (attackerIdx < 0 || attackerIdx >= Opponent.field.Length) return;
+        StartCoroutine(ResolveOpponentActionCoroutine(attackerIdx, targetIdx));
+    }
 
+    private IEnumerator ResolveOpponentActionCoroutine(int attackerIdx, int targetIdx)
+    {
         var attacker = Opponent.field[attackerIdx];
-        if (attacker == null || attacker.IsDead) return;
+        if (attacker == null || attacker.IsDead) yield break;
 
         var ctx = BuildContext(Opponent, attackerIdx);
         var attack = attacker.Attack;
@@ -200,11 +207,14 @@ public class BattleController : MonoBehaviour
         if (!valid.Contains(targetIdx))
         {
             Debug.LogWarning($"[Battle/AI] target {targetIdx} not valid for opponent slot {attackerIdx}");
-            return;
+            yield break;
         }
 
         SetState(BattleState.ResolveAction);
+        if (sceneUI != null) yield return sceneUI.PlayAttackLunge(Opponent, attackerIdx, Player, targetIdx);
         attack.Execute(ctx, targetIdx);
+        if (sceneUI != null) yield return sceneUI.PlayReturnToSlot(Opponent, attackerIdx);
+        if (sceneUI != null) yield return sceneUI.ProcessPendingSpawns();
 
         SetState(BattleState.OpponentTurnEnd);
         EndCurrentTurn();

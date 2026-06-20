@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
@@ -23,12 +25,27 @@ public class BattleSceneUI : MonoBehaviour
     [SerializeField] private RectTransform[] opponentFieldSlots;
     [SerializeField] private RectTransform[] opponentStandbySlots;
 
+    [Header("Animation")]
+    [Tooltip("공격 lunge 동안 카드를 잠시 옮길 Canvas 상단 빈 RectTransform. 비어있으면 Canvas 루트에 자동 폴백.")]
+    [SerializeField] private RectTransform animLayer;
+    [SerializeField] private float lungeLiftDuration = 0.12f;
+    [SerializeField] private float lungeSlamDuration = 0.18f;
+    [SerializeField] private float lungeReturnDuration = 0.22f;
+    [SerializeField] private float hitShakeDuration = 0.3f;
+    [SerializeField] private float hitShakeStrength = 18f;
+    [SerializeField] private float flipHalfDuration = 0.3f;
+
     private CardView[] playerFieldViews;
     private CardView[] playerStandbyViews;
     private CardView[] opponentFieldViews;
     private CardView[] opponentStandbyViews;
 
     private CardView openedCard;
+
+    private struct PendingDeath { public Side side; public int fieldSlot; }
+    private struct PendingSpawn { public Side side; public int fieldSlot; public CardInstance newCard; public int fromStandbyIdx; }
+    private readonly List<PendingDeath> pendingDeaths = new List<PendingDeath>();
+    private readonly List<PendingSpawn> pendingSpawns = new List<PendingSpawn>();
 
     public IReadOnlyList<CardView> PlayerFieldViews => playerFieldViews;
     public IReadOnlyList<CardView> PlayerStandbyViews => playerStandbyViews;
@@ -66,6 +83,7 @@ public class BattleSceneUI : MonoBehaviour
         battle.OnTurnStarting += HandleTurnStarting;
         battle.OnStateChanged += HandleStateChanged;
         battle.Resolver.OnDamageDealt += HandleDamageDealt;
+        battle.Resolver.OnHealApplied += HandleHealApplied;
         battle.Resolver.OnCardDied += HandleCardDied;
         battle.Resolver.OnCardSpawned += HandleCardSpawned;
     }
@@ -79,6 +97,7 @@ public class BattleSceneUI : MonoBehaviour
             if (battle.Resolver != null)
             {
                 battle.Resolver.OnDamageDealt -= HandleDamageDealt;
+                battle.Resolver.OnHealApplied -= HandleHealApplied;
                 battle.Resolver.OnCardDied -= HandleCardDied;
                 battle.Resolver.OnCardSpawned -= HandleCardSpawned;
             }
@@ -289,22 +308,72 @@ public class BattleSceneUI : MonoBehaviour
     private void HandleDamageDealt(Side side, int slotIdx, int amount)
     {
         var view = GetFieldView(side, slotIdx);
-        if (view != null) view.Refresh();
+        if (view == null) return;
+        view.Refresh();
+        view.PlayHitFX();
+        StartCoroutine(PlayHitShake(view));
     }
 
+    private void HandleHealApplied(Side side, int slotIdx, int amount)
+    {
+        var view = GetFieldView(side, slotIdx);
+        if (view == null) return;
+        view.Refresh();
+        view.PlayHealFX();
+    }
+
+    /// <summary>
+    /// 사망 시 즉시 DeadOverlay 만 노출(Refresh) 후 큐에 적재.
+    /// 실제 카드 교체/제거는 공격자 복귀 이후 ProcessPendingSpawns 에서 처리.
+    /// </summary>
     private void HandleCardDied(Side side, int slotIdx, CardInstance dyingCard)
     {
         var view = GetFieldView(side, slotIdx);
-        if (view != null) view.Refresh();
+        if (view != null) view.Refresh(); // Bound 아직 dyingCard → DeadOverlay 표시
+        pendingDeaths.Add(new PendingDeath { side = side, fieldSlot = slotIdx });
     }
 
+    /// <summary>
+    /// standby→field 자동 배치 이벤트를 큐잉만 — 시각 처리는 ProcessPendingSpawns 에서.
+    /// 큐잉 단계에선 어떠한 view 도 손대지 않음(데드뷰도 그대로, standby 뷰도 그대로).
+    /// </summary>
     private void HandleCardSpawned(Side side, int fieldSlot, CardInstance newCard, int fromStandbyIdx)
     {
-        var fieldView = GetFieldView(side, fieldSlot);
-        if (fieldView != null) fieldView.Bind(side, fieldSlot, newCard, faceUp: true);
+        pendingSpawns.Add(new PendingSpawn { side = side, fieldSlot = fieldSlot, newCard = newCard, fromStandbyIdx = fromStandbyIdx });
+    }
 
-        var standbyView = GetStandbyView(side, fromStandbyIdx);
-        if (standbyView != null) standbyView.Bind(side, fromStandbyIdx, null, faceUp: false);
+    /// <summary>
+    /// 한 액션이 끝난 뒤(공격자 복귀 또는 스킬 실행 직후) 호출 — 누적된 사망/스폰 이벤트를 시각화.
+    /// 각 spawn 은 standby→field 이동 + 동시 플립 애니메이션. spawn 없는 사망은 dead view 를 정리.
+    /// 여러 spawn 은 병렬로 진행해 총 시간 최소화.
+    /// </summary>
+    public IEnumerator ProcessPendingSpawns()
+    {
+        if (pendingDeaths.Count == 0 && pendingSpawns.Count == 0) yield break;
+
+        var spawnsSnap = new List<PendingSpawn>(pendingSpawns);
+        var deathsSnap = new List<PendingDeath>(pendingDeaths);
+        pendingSpawns.Clear();
+        pendingDeaths.Clear();
+
+        // 스폰 병렬 실행
+        var running = new List<Coroutine>(spawnsSnap.Count);
+        foreach (var s in spawnsSnap)
+            running.Add(StartCoroutine(AnimateStandbyToField(s.side, s.fromStandbyIdx, s.fieldSlot, s.newCard)));
+        foreach (var c in running) yield return c;
+
+        // 교체되지 않은 사망 슬롯은 명시적으로 비움(데드뷰 잔류 방지)
+        foreach (var d in deathsSnap)
+        {
+            bool replaced = false;
+            foreach (var s in spawnsSnap)
+                if (s.side == d.side && s.fieldSlot == d.fieldSlot) { replaced = true; break; }
+            if (!replaced)
+            {
+                var view = GetFieldView(d.side, d.fieldSlot);
+                if (view != null) view.Bind(d.side, d.fieldSlot, null, faceUp: false);
+            }
+        }
     }
 
     private void RefreshAllField()
@@ -333,6 +402,156 @@ public class BattleSceneUI : MonoBehaviour
         if (arr == null || slotIdx < 0 || slotIdx >= arr.Length) return null;
         return arr[slotIdx];
     }
+
+    // ───────── Animation coroutines (DOTween) ─────────
+
+    /// <summary>공격자 카드를 살짝 띄운 뒤 대상 카드 위치로 슬램. 데미지 적용은 호출자가 본 코루틴 이후에 수행.</summary>
+    public IEnumerator PlayAttackLunge(Side atkSide, int atkSlot, Side defSide, int defSlot)
+    {
+        var atkView = GetFieldView(atkSide, atkSlot);
+        var defView = GetFieldView(defSide, defSlot);
+        if (atkView == null || defView == null) yield break;
+
+        var rt = (RectTransform)atkView.transform;
+        RectTransform layer = animLayer;
+        if (layer == null)
+        {
+            var canvas = atkView.GetComponentInParent<Canvas>();
+            if (canvas != null) layer = (RectTransform)canvas.transform;
+        }
+        if (layer == null) yield break;
+
+        // 캔버스/anim 레이어로 reparent (월드 위치 유지) + 최상단 렌더.
+        rt.SetParent(layer, worldPositionStays: true);
+        rt.SetAsLastSibling();
+
+        // UI 라 Z축(카메라 방향) 부양이 깨끗하게 안 나옴 → lift 단계 생략.
+        // 자기 슬롯에서 적 슬롯으로 단일 DOMove 로 직선 슬램.
+        Vector3 slamPos = ((RectTransform)defView.transform).position;
+        yield return rt.DOMove(slamPos, lungeSlamDuration).SetEase(Ease.InQuad).WaitForCompletion();
+    }
+
+    /// <summary>공격 후 원래 슬롯으로 복귀. 부모/스트레치 앵커 복원. 다른 tween 충돌 방지 위해 시작 전 DOKill.</summary>
+    public IEnumerator PlayReturnToSlot(Side atkSide, int atkSlot)
+    {
+        var atkView = GetFieldView(atkSide, atkSlot);
+        if (atkView == null) yield break;
+        var rt = (RectTransform)atkView.transform;
+        var slot = GetFieldSlot(atkSide, atkSlot);
+        if (slot == null) yield break;
+
+        // 카운터 데미지로 인한 PlayHitShake 등이 동시에 transform.position 을 만지면 DOMove 가 죽거나 충돌함.
+        // 본 메서드가 복귀의 최종 권위 — 진입 시점에 기존 tween 모두 정리.
+        rt.DOKill();
+
+        yield return rt.DOMove(slot.position, lungeReturnDuration).SetEase(Ease.InOutQuad).WaitForCompletion();
+
+        rt.SetParent(slot, worldPositionStays: false);
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        rt.localScale = Vector3.one;
+        rt.localRotation = Quaternion.identity;
+    }
+
+    /// <summary>
+    /// 피격 흔들림. 슬롯에 박혀있는 카드에만 적용 — animLayer 로 reparent 된 카드(공격 중 lunge 카드)는 스킵.
+    /// 그쪽까지 흔들면 lunge 의 DOMove 와 동일 transform.position 을 두고 충돌해서 복귀 실패 유발.
+    /// </summary>
+    private IEnumerator PlayHitShake(CardView view)
+    {
+        if (view == null) yield break;
+        var rt = view.transform;
+        var slot = GetFieldSlot(view.OwningSide, view.SlotIndex);
+        if (slot != null && rt.parent != slot) yield break;
+
+        yield return rt.DOShakePosition(hitShakeDuration, strength: hitShakeStrength, vibrato: 12, randomness: 90, snapping: false, fadeOut: true).WaitForCompletion();
+    }
+
+    /// <summary>
+    /// standby 카드를 field 빈 슬롯으로 이동시키면서 동시에 플립.
+    /// 이동의 주체는 standby 슬롯의 CardView 자체 — 이미 그 위치에 있어 출발점 정확.
+    /// 도착 시점에 fieldView 로 인스턴트 스왑(같은 카드·같은 위치라 시각적 단절 없음) + standbyView 는 본래 슬롯으로 복귀해 비활성.
+    /// 이동/회전 같은 duration. 회전은 0→90(faceDown)→SetFaceUp(true)→0(faceUp) 반바퀴 — 거울상 방지.
+    /// </summary>
+    private IEnumerator AnimateStandbyToField(Side side, int standbyIdx, int fieldSlot, CardInstance newCard)
+    {
+        var standbyView = GetStandbyView(side, standbyIdx);
+        var fieldView = GetFieldView(side, fieldSlot);
+        var standbySlot = GetStandbySlot(side, standbyIdx);
+        var fieldSlotRT = GetFieldSlot(side, fieldSlot);
+
+        // 어느 하나라도 빠지면 인스턴트 폴백
+        if (standbyView == null || fieldView == null || standbySlot == null || fieldSlotRT == null)
+        {
+            if (fieldView != null) fieldView.Bind(side, fieldSlot, newCard, faceUp: true);
+            if (standbyView != null) standbyView.Bind(side, standbyIdx, null, faceUp: false);
+            yield break;
+        }
+
+        RectTransform layer = animLayer;
+        if (layer == null)
+        {
+            var canvas = standbyView.GetComponentInParent<Canvas>();
+            if (canvas != null) layer = (RectTransform)canvas.transform;
+        }
+        if (layer == null)
+        {
+            fieldView.Bind(side, fieldSlot, newCard, faceUp: true);
+            standbyView.Bind(side, standbyIdx, null, faceUp: false);
+            yield break;
+        }
+
+        var rt = (RectTransform)standbyView.transform;
+        rt.DOKill();
+        rt.SetParent(layer, worldPositionStays: true);
+        rt.SetAsLastSibling();
+        rt.localEulerAngles = Vector3.zero;
+
+        Vector3 endPos = fieldSlotRT.position;
+        float total = flipHalfDuration * 2f;
+
+        // 이동(전체 duration) — 백그라운드. 회전 yield 와 동시 진행.
+        rt.DOMove(endPos, total).SetEase(Ease.InOutQuad);
+
+        // 회전 0→90 (뒷면이 사라지는 구간)
+        yield return rt.DOLocalRotate(new Vector3(0f, 90f, 0f), flipHalfDuration).SetEase(Ease.InQuad).WaitForCompletion();
+        standbyView.SetFaceUp(true);
+        // 회전 90→0 (앞면이 나타나는 구간) — 이 사이 이동도 계속 진행
+        yield return rt.DOLocalRotate(Vector3.zero, flipHalfDuration).SetEase(Ease.OutQuad).WaitForCompletion();
+
+        // 이동 완료 보장.
+        rt.position = endPos;
+
+        // 스왑: field view 가 인계받음, standby view 는 비우고 본래 슬롯으로 복귀.
+        fieldView.Bind(side, fieldSlot, newCard, faceUp: true);
+
+        standbyView.Bind(side, standbyIdx, null, faceUp: false);
+        rt.SetParent(standbySlot, worldPositionStays: false);
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        rt.localScale = Vector3.one;
+        rt.localRotation = Quaternion.identity;
+    }
+
+    private RectTransform GetFieldSlot(Side side, int slotIdx)
+    {
+        var arr = side != null && side.isPlayer ? playerFieldSlots : opponentFieldSlots;
+        if (arr == null || slotIdx < 0 || slotIdx >= arr.Length) return null;
+        return arr[slotIdx];
+    }
+
+    private RectTransform GetStandbySlot(Side side, int slotIdx)
+    {
+        var arr = side != null && side.isPlayer ? playerStandbySlots : opponentStandbySlots;
+        if (arr == null || slotIdx < 0 || slotIdx >= arr.Length) return null;
+        return arr[slotIdx];
+    }
+
+    // ───────── Spawn ─────────
 
     private CardView[] SpawnRow(Side side, CardInstance[] cards, RectTransform[] slots, bool faceUp)
     {

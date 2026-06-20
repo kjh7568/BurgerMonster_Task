@@ -13,7 +13,7 @@ public class HealSkill : ICardSkill
 
     public void Execute(BattleContext ctx, int targetIndex)
     {
-        var target = ctx.attackerSide.field[targetIndex];
-        if (target != null && !target.IsDead) target.Heal(2);
+        // Resolver 경유로 OnHealApplied 이벤트 발화 → UI 가 HealFX 재생.
+        ctx.resolver.Heal(ctx.attackerSide, targetIndex, 2);
     }
 }

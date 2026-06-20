@@ -41,6 +41,10 @@ public class CardView : MonoBehaviour
         public Sprite icon;
     }
 
+    [Header("FX")]
+    [SerializeField] private GameObject bloodHitFX;
+    [SerializeField] private GameObject healFX;
+
     public Side OwningSide { get; private set; }
     public int SlotIndex { get; private set; }
     public CardInstance Bound { get; private set; }
@@ -155,5 +159,26 @@ public class CardView : MonoBehaviour
         foreach (var p in typeIcons)
             if (p.type == t) return p.icon;
         return null;
+    }
+
+    public void PlayHitFX() => PlayFX(bloodHitFX);
+    public void PlayHealFX() => PlayFX(healFX);
+
+    /// <summary>ParticleSystem 이면 Stop+Play 로 재시작, 아니면 GameObject 토글로 Animator 재트리거.</summary>
+    private void PlayFX(GameObject fx)
+    {
+        if (fx == null) return;
+        var ps = fx.GetComponent<UnityEngine.ParticleSystem>();
+        if (ps != null)
+        {
+            fx.SetActive(true);
+            ps.Stop(true, UnityEngine.ParticleSystemStopBehavior.StopEmittingAndClear);
+            ps.Play();
+        }
+        else
+        {
+            fx.SetActive(false);
+            fx.SetActive(true);
+        }
     }
 }
