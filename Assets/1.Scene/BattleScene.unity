@@ -957,6 +957,7 @@ GameObject:
   - component: {fileID: 445011233}
   - component: {fileID: 445011235}
   - component: {fileID: 445011234}
+  - component: {fileID: 445011236}
   m_Layer: 0
   m_Name: TurnIndicator
   m_TagString: Untagged
@@ -1083,6 +1084,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 445011232}
   m_CullTransparentMesh: 1
+--- !u!114 &445011236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 445011232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f8cf2ec00107d147acd7292cb260a51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TurnIndicator
+  label: {fileID: 445011234}
+  battle: {fileID: 232185240}
+  playerColor: {r: 0.4, g: 0.85, b: 1, a: 1}
+  opponentColor: {r: 1, g: 0.45, b: 0.45, a: 1}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0

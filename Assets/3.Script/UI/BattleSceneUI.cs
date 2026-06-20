@@ -53,10 +53,26 @@ public class BattleSceneUI : MonoBehaviour
             v.OnAttackPressed += HandleActionPressed;
             v.OnSkillPressed += HandleActionPressed;
         }
+
+        battle.OnTurnStarting += HandleTurnStarting;
+        battle.Resolver.OnDamageDealt += HandleDamageDealt;
+        battle.Resolver.OnCardDied += HandleCardDied;
+        battle.Resolver.OnCardSpawned += HandleCardSpawned;
     }
 
     private void OnDestroy()
     {
+        if (battle != null)
+        {
+            battle.OnTurnStarting -= HandleTurnStarting;
+            if (battle.Resolver != null)
+            {
+                battle.Resolver.OnDamageDealt -= HandleDamageDealt;
+                battle.Resolver.OnCardDied -= HandleCardDied;
+                battle.Resolver.OnCardSpawned -= HandleCardSpawned;
+            }
+        }
+
         if (playerFieldViews == null) return;
         foreach (var v in playerFieldViews)
         {
@@ -109,6 +125,61 @@ public class BattleSceneUI : MonoBehaviour
     private void HandleActionPressed(CardView v)
     {
         CloseOpened();
+    }
+
+    /// <summary>
+    /// 턴 시작 직전 호출. 힐러 회복 등 TurnStartEffects가 곧 HP를 변경하므로 양 진영 모든 field 카드를 일괄 Refresh.
+    /// </summary>
+    private void HandleTurnStarting(Side side)
+    {
+        RefreshAllField();
+    }
+
+    private void HandleDamageDealt(Side side, int slotIdx, int amount)
+    {
+        var view = GetFieldView(side, slotIdx);
+        if (view != null) view.Refresh();
+    }
+
+    private void HandleCardDied(Side side, int slotIdx, CardInstance dyingCard)
+    {
+        // OnCardDied는 field[slotIdx] = null 직전에 발화 — 죽은 카드 상태로 한 번 보여줘서 deadOverlay 노출.
+        var view = GetFieldView(side, slotIdx);
+        if (view != null) view.Refresh();
+    }
+
+    /// <summary>
+    /// standby의 한 장이 field 빈 슬롯으로 자동 배치됐을 때 호출.
+    /// 1) field 슬롯 CardView를 새 인스턴스로 Rebind(앞면).
+    /// 2) 비워진 standby 슬롯 CardView를 null Bind 해 사라지게 함.
+    /// </summary>
+    private void HandleCardSpawned(Side side, int fieldSlot, CardInstance newCard, int fromStandbyIdx)
+    {
+        var fieldView = GetFieldView(side, fieldSlot);
+        if (fieldView != null) fieldView.Bind(side, fieldSlot, newCard, faceUp: true);
+
+        var standbyView = GetStandbyView(side, fromStandbyIdx);
+        if (standbyView != null) standbyView.Bind(side, fromStandbyIdx, null, faceUp: false);
+    }
+
+    private void RefreshAllField()
+    {
+        if (playerFieldViews != null) foreach (var v in playerFieldViews) v?.Refresh();
+        if (opponentFieldViews != null) foreach (var v in opponentFieldViews) v?.Refresh();
+    }
+
+    private CardView GetFieldView(Side side, int slotIdx)
+    {
+        var arr = side != null && side.isPlayer ? playerFieldViews : opponentFieldViews;
+        if (arr == null || slotIdx < 0 || slotIdx >= arr.Length) return null;
+        return arr[slotIdx];
+    }
+
+    private CardView GetStandbyView(Side side, int slotIdx)
+    {
+        var arr = side != null && side.isPlayer ? playerStandbyViews : opponentStandbyViews;
+        if (arr == null || slotIdx < 0 || slotIdx >= arr.Length) return null;
+        return arr[slotIdx];
     }
 
     /// <summary>

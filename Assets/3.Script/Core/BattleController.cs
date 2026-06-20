@@ -13,6 +13,9 @@ public class BattleController : MonoBehaviour
     public Side Winner { get; private set; }
     public DamageResolver Resolver { get; private set; }
 
+    /// <summary>현재 턴 번호. 양 진영 각자의 TurnStart 진입 시 1씩 증가.</summary>
+    public int TurnNumber { get; private set; }
+
     public event Action<BattleState> OnStateChanged;
     public event Action<Side> OnTurnStarting;
     public event Action<Side> OnTurnStarted;
@@ -66,11 +69,13 @@ public class BattleController : MonoBehaviour
         switch (s)
         {
             case BattleState.PlayerTurnStart:
+                TurnNumber++;
                 CurrentSide = Player;
                 RunTurnStart(CurrentSide);
                 SetState(BattleState.AwaitCardSelect);
                 break;
             case BattleState.OpponentTurnStart:
+                TurnNumber++;
                 CurrentSide = Opponent;
                 RunTurnStart(CurrentSide);
                 SetState(BattleState.OpponentTurnAction);
