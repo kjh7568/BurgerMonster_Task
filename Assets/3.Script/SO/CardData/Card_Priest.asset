@@ -15,5 +15,5 @@ MonoBehaviour:
   cardName: "\uC0AC\uC81C"
   type: 3
   baseHP: 3
-  illustration: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
+  illustration: {fileID: -1450402878280788287, guid: 7bb872f7a5ada29498fbad81e80072ef, type: 3}
   description: 
