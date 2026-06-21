@@ -43,9 +43,15 @@ public class MapPanelController : MonoBehaviour
     [SerializeField] private Sprite upgradeIcon;
     [SerializeField] private Sprite recruitIcon;
 
+    [Header("Debug")]
+    [Tooltip("0 이상이면 Run 시작 시점(첫 노드 진입) 에 RunState.Gold 를 이 값으로 세팅. 음수면 비활성.")]
+    [SerializeField] private int debugInitialGold = -1;
+
     [Header("Sub Panels")]
     [Tooltip("강화 이벤트 후보. 진입 시 CanRun()=true 인 것 중 1개를 랜덤 선택해 Show. 비어 있으면 upgradeStubPanel 로 폴백.")]
     [SerializeField] private UpgradeEventBase[] upgradeEventCandidates;
+    [Tooltip("영입 이벤트 후보(현재는 유료 1종). 진입 시 CanRun()=true 인 것 중 1개를 랜덤 선택해 Show. 비어 있으면 recruitStubPanel 로 폴백.")]
+    [SerializeField] private RecruitEventBase[] recruitEventCandidates;
     [Tooltip("후보 미설정/모두 CanRun=false 시 사용할 임시 스텁(또는 Recruit 와 공유).")]
     [SerializeField] private StubEventPanel upgradeStubPanel;
     [SerializeField] private StubEventPanel recruitStubPanel;
@@ -56,11 +62,20 @@ public class MapPanelController : MonoBehaviour
     private void OnEnable()
     {
         RunState.EnsureInitialized();
+        ApplyDebugInitialGold();
         EnsureMapSelected();
         EnsurePlayerDeckInitialized();
         Rebuild();
         Refresh();
         CheckEnding();
+    }
+
+    /// <summary>Run 시작 시점(첫 노드 진입) 에 한해 debugInitialGold 적용. 전투 보상 누적분 덮어쓰지 않기 위해 CurrentNodeIndex==0 일 때만 동작.</summary>
+    private void ApplyDebugInitialGold()
+    {
+        if (debugInitialGold < 0) return;
+        if (RunState.CurrentNodeIndex != 0) return;
+        RunState.SetGold(debugInitialGold);
     }
 
     /// <summary>Run 시작 시 PlayerDeck 이 비어있으면 StartingDeck 풀에서 셔플 픽해 채운다. 영입/강화 결과는 다른 시스템이 덮어쓸 것.</summary>
@@ -196,7 +211,9 @@ public class MapPanelController : MonoBehaviour
                 else OnStubResolved();
                 break;
             case NodeType.Recruit:
-                if (recruitStubPanel != null) recruitStubPanel.Show(OnStubResolved);
+                var pickedRecruit = PickRandomRecruitEvent();
+                if (pickedRecruit != null) pickedRecruit.Show(OnStubResolved);
+                else if (recruitStubPanel != null) recruitStubPanel.Show(OnStubResolved);
                 else OnStubResolved();
                 break;
         }
@@ -210,6 +227,20 @@ public class MapPanelController : MonoBehaviour
         for (int i = 0; i < upgradeEventCandidates.Length; i++)
         {
             var ev = upgradeEventCandidates[i];
+            if (ev != null && ev.CanRun()) pool.Add(ev);
+        }
+        if (pool.Count == 0) return null;
+        return pool[UnityEngine.Random.Range(0, pool.Count)];
+    }
+
+    /// <summary>영입 후보 배열에서 CanRun()=true 인 것 중 균등 랜덤 1개. 모두 false 면 null.</summary>
+    private RecruitEventBase PickRandomRecruitEvent()
+    {
+        if (recruitEventCandidates == null || recruitEventCandidates.Length == 0) return null;
+        var pool = new List<RecruitEventBase>(recruitEventCandidates.Length);
+        for (int i = 0; i < recruitEventCandidates.Length; i++)
+        {
+            var ev = recruitEventCandidates[i];
             if (ev != null && ev.CanRun()) pool.Add(ev);
         }
         if (pool.Count == 0) return null;

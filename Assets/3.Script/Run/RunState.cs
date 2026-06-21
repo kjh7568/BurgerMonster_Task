@@ -119,6 +119,37 @@ public static class RunState
         Debug.Log($"[RunState] Gold +{amount} → {Gold}");
     }
 
+    /// <summary>디버그/치트용 골드 강제 세팅. 음수 무시.</summary>
+    public static void SetGold(int amount)
+    {
+        if (amount < 0) return;
+        Gold = amount;
+        Debug.Log($"[RunState] Gold set → {Gold}");
+    }
+
+    /// <summary>amount 만큼 골드 차감 시도. 잔액 부족이면 false 반환하고 차감 안 함.</summary>
+    public static bool SpendGold(int amount)
+    {
+        if (amount < 0) return false;
+        if (Gold < amount) return false;
+        Gold -= amount;
+        Debug.Log($"[RunState] Gold -{amount} → {Gold}");
+        return true;
+    }
+
+    /// <summary>용병 영입 — PlayerDeck[deckIndex] 의 카드를 newCard 로 교체. 해당 슬롯의 HP/스킬 보너스는 0으로 초기화(이전 카드 강화 흔적 제거).</summary>
+    public static void ReplaceCardAt(int deckIndex, CardDataSO newCard)
+    {
+        if (newCard == null) return;
+        if (deckIndex < 0 || deckIndex >= PlayerDeck.Count) return;
+        var old = PlayerDeck[deckIndex];
+        PlayerDeck[deckIndex] = newCard;
+        SyncBonusLists();
+        if (deckIndex < perCardHpBonus.Count) perCardHpBonus[deckIndex] = 0;
+        if (deckIndex < perCardSkillBonus.Count) perCardSkillBonus[deckIndex] = 0;
+        Debug.Log($"[RunState] PlayerDeck[{deckIndex}] {old?.cardName} → {newCard.cardName} (bonuses reset)");
+    }
+
     /// <summary>현재 노드 완료 처리. 인덱스를 1 증가시키고, 완료한 노드가 이벤트(Upgrade/Recruit)면 Stage 도 +1.</summary>
     public static void AdvanceNode(int totalNodes, NodeType completedType)
     {
