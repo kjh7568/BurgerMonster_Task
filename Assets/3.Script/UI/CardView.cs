@@ -123,6 +123,46 @@ public class CardView : MonoBehaviour
         if (Bound.IsDead) HideActionPanel();
     }
 
+    /// <summary>
+    /// 전투 외 미리보기 모드(강화 이벤트 그리드 등). CardInstance 없이 CardDataSO + 보너스로만 표시.
+    /// MaxHP = baseHP + hpBonus 로 고정(variance 미적용). 액션 오버레이/스킬 버튼은 강제 숨김.
+    /// 클릭 활성/비활성은 button.interactable 로 처리 — 비활성 시각화는 Button 의 Disabled Color 사용.
+    /// </summary>
+    public void BindPreview(CardDataSO data, int hpBonus, int skillBonus, bool interactable)
+    {
+        OwningSide = null;
+        SlotIndex = -1;
+        Bound = null;
+        IsFaceUp = true;
+        HideActionPanel();
+
+        gameObject.SetActive(true);
+        if (faceUpRoot != null) faceUpRoot.SetActive(true);
+        if (faceDownRoot != null) faceDownRoot.SetActive(false);
+
+        if (data != null)
+        {
+            if (illustration != null) illustration.sprite = data.illustration;
+            if (nameText != null) nameText.text = data.cardName;
+            if (typeIcon != null) typeIcon.sprite = LookupTypeIcon(data.type);
+            int maxHp = Mathf.Max(1, data.baseHP + hpBonus);
+            string hpSuffix = (hpBonus > 0 || skillBonus > 0) ? BuildBonusSuffix(hpBonus, skillBonus) : string.Empty;
+            if (hpText != null) hpText.text = $"{maxHp}/{maxHp}{hpSuffix}";
+            if (hpBar != null) hpBar.fillAmount = 1f;
+        }
+        if (deadOverlay != null) deadOverlay.SetActive(false);
+        if (skillButton != null) skillButton.gameObject.SetActive(false);
+        if (button != null) button.interactable = interactable;
+    }
+
+    private static string BuildBonusSuffix(int hpBonus, int skillBonus)
+    {
+        if (hpBonus > 0 && skillBonus > 0) return $" (HP+{hpBonus}, SK+{skillBonus})";
+        if (hpBonus > 0) return $" (+{hpBonus})";
+        if (skillBonus > 0) return $" (SK+{skillBonus})";
+        return string.Empty;
+    }
+
     /// <summary>면 상태만 바꾸고 즉시 반영. Bound 카드는 그대로 유지. 뒷면이면 액션 패널 강제 닫음.</summary>
     public void SetFaceUp(bool up)
     {

@@ -73,9 +73,17 @@ public class BattleController : MonoBehaviour
             Debug.LogError("[Battle] 플레이어 카드 소스 없음 (RunState/fallback 둘 다 비어있음).");
         }
 
+        // RunState.PlayerDeck 에서 가져온 카드만 강화 보너스 적용 (fallback 경로는 보너스 없이).
+        bool fromRunState = RunState.PlayerDeck != null && RunState.PlayerDeck.Count > 0;
+        int globalHpBonus = fromRunState ? RunState.GlobalHpBonus : 0;
+
         var result = new List<CardInstance>(needed);
         for (int i = 0; i < sources.Count && i < needed; i++)
-            result.Add(new CardInstance(sources[i]));
+        {
+            int hpBonus = globalHpBonus + (fromRunState ? RunState.GetPerCardHpBonus(i) : 0);
+            int skillBonus = fromRunState ? RunState.GetPerCardSkillBonus(i) : 0;
+            result.Add(new CardInstance(sources[i], hpBonus, skillBonus));
+        }
         return result;
     }
 

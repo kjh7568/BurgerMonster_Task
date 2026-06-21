@@ -24,6 +24,15 @@ public static class RunState
     /// <summary>플레이어 덱(시작 6장 + 영입/강화 결과). MapScene 진입 시 비어있으면 StartingDeck 에서 픽해 초기화.</summary>
     public static List<CardDataSO> PlayerDeck { get; private set; } = new List<CardDataSO>();
 
+    /// <summary>강화 이벤트 옵션1 — 모든 카드에 가산되는 글로벌 HP 보너스. BattleController.BuildPlayerCards 에서 hpBonus 로 주입.</summary>
+    public static int GlobalHpBonus { get; private set; }
+
+    /// <summary>강화 이벤트 옵션2 — PlayerDeck 인덱스별 HP 보너스. 길이는 PlayerDeck.Count 와 동기화.</summary>
+    private static readonly List<int> perCardHpBonus = new List<int>();
+
+    /// <summary>강화 이벤트 옵션3 — PlayerDeck 인덱스별 스킬 수치 보너스(HealSkill 회복량, VolleySkill 데미지). 길이는 PlayerDeck.Count 와 동기화.</summary>
+    private static readonly List<int> perCardSkillBonus = new List<int>();
+
     public static void EnsureInitialized()
     {
         if (initialized) return;
@@ -38,6 +47,9 @@ public static class RunState
         Stage = 0;
         Gold = 0;
         PlayerDeck.Clear();
+        GlobalHpBonus = 0;
+        perCardHpBonus.Clear();
+        perCardSkillBonus.Clear();
         initialized = true;
         Debug.Log("[RunState] Reset");
     }
@@ -52,7 +64,52 @@ public static class RunState
     {
         PlayerDeck.Clear();
         if (cards != null) PlayerDeck.AddRange(cards);
+        SyncBonusLists();
         Debug.Log($"[RunState] PlayerDeck set ({PlayerDeck.Count} cards)");
+    }
+
+    /// <summary>덱 크기 변화에 맞춰 보너스 리스트 길이를 늘리거나(0으로 채움) 줄인다. 기존 값은 보존.</summary>
+    private static void SyncBonusLists()
+    {
+        while (perCardHpBonus.Count < PlayerDeck.Count) perCardHpBonus.Add(0);
+        while (perCardHpBonus.Count > PlayerDeck.Count) perCardHpBonus.RemoveAt(perCardHpBonus.Count - 1);
+        while (perCardSkillBonus.Count < PlayerDeck.Count) perCardSkillBonus.Add(0);
+        while (perCardSkillBonus.Count > PlayerDeck.Count) perCardSkillBonus.RemoveAt(perCardSkillBonus.Count - 1);
+    }
+
+    public static int GetPerCardHpBonus(int deckIndex)
+    {
+        return (deckIndex >= 0 && deckIndex < perCardHpBonus.Count) ? perCardHpBonus[deckIndex] : 0;
+    }
+
+    public static int GetPerCardSkillBonus(int deckIndex)
+    {
+        return (deckIndex >= 0 && deckIndex < perCardSkillBonus.Count) ? perCardSkillBonus[deckIndex] : 0;
+    }
+
+    /// <summary>강화 옵션1 — 모든 카드 최대 HP +amount.</summary>
+    public static void ApplyGlobalHpUpgrade(int amount)
+    {
+        GlobalHpBonus += amount;
+        Debug.Log($"[RunState] GlobalHpBonus +{amount} → {GlobalHpBonus}");
+    }
+
+    /// <summary>강화 옵션2 — PlayerDeck[deckIndex] 의 HP +amount.</summary>
+    public static void ApplyPerCardHpUpgrade(int deckIndex, int amount)
+    {
+        SyncBonusLists();
+        if (deckIndex < 0 || deckIndex >= perCardHpBonus.Count) return;
+        perCardHpBonus[deckIndex] += amount;
+        Debug.Log($"[RunState] perCardHpBonus[{deckIndex}] +{amount} → {perCardHpBonus[deckIndex]} ({PlayerDeck[deckIndex].cardName})");
+    }
+
+    /// <summary>강화 옵션3 — PlayerDeck[deckIndex] 의 스킬 수치 +amount.</summary>
+    public static void ApplyPerCardSkillUpgrade(int deckIndex, int amount)
+    {
+        SyncBonusLists();
+        if (deckIndex < 0 || deckIndex >= perCardSkillBonus.Count) return;
+        perCardSkillBonus[deckIndex] += amount;
+        Debug.Log($"[RunState] perCardSkillBonus[{deckIndex}] +{amount} → {perCardSkillBonus[deckIndex]} ({PlayerDeck[deckIndex].cardName})");
     }
 
     public static void AddGold(int amount)

@@ -44,6 +44,9 @@ public class MapPanelController : MonoBehaviour
     [SerializeField] private Sprite recruitIcon;
 
     [Header("Sub Panels")]
+    [Tooltip("강화 이벤트 후보. 진입 시 CanRun()=true 인 것 중 1개를 랜덤 선택해 Show. 비어 있으면 upgradeStubPanel 로 폴백.")]
+    [SerializeField] private UpgradeEventBase[] upgradeEventCandidates;
+    [Tooltip("후보 미설정/모두 CanRun=false 시 사용할 임시 스텁(또는 Recruit 와 공유).")]
     [SerializeField] private StubEventPanel upgradeStubPanel;
     [SerializeField] private StubEventPanel recruitStubPanel;
     [SerializeField] private EndingPanel endingPanel;
@@ -187,7 +190,9 @@ public class MapPanelController : MonoBehaviour
                 SceneManager.LoadScene(SceneNames.Battle);
                 break;
             case NodeType.Upgrade:
-                if (upgradeStubPanel != null) upgradeStubPanel.Show(OnStubResolved);
+                var picked = PickRandomUpgradeEvent();
+                if (picked != null) picked.Show(OnStubResolved);
+                else if (upgradeStubPanel != null) upgradeStubPanel.Show(OnStubResolved);
                 else OnStubResolved();
                 break;
             case NodeType.Recruit:
@@ -195,6 +200,20 @@ public class MapPanelController : MonoBehaviour
                 else OnStubResolved();
                 break;
         }
+    }
+
+    /// <summary>후보 배열에서 CanRun()=true 인 것 중 균등 랜덤 1개. 모두 false 면 null.</summary>
+    private UpgradeEventBase PickRandomUpgradeEvent()
+    {
+        if (upgradeEventCandidates == null || upgradeEventCandidates.Length == 0) return null;
+        var pool = new List<UpgradeEventBase>(upgradeEventCandidates.Length);
+        for (int i = 0; i < upgradeEventCandidates.Length; i++)
+        {
+            var ev = upgradeEventCandidates[i];
+            if (ev != null && ev.CanRun()) pool.Add(ev);
+        }
+        if (pool.Count == 0) return null;
+        return pool[UnityEngine.Random.Range(0, pool.Count)];
     }
 
     /// <summary>스텁 노드 완료 콜백 — 인덱스만 진행하고 지도에 머문다. 현재 노드 타입을 RunState 에 같이 넘겨 Stage 증가 트리거 판단.</summary>

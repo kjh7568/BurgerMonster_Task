@@ -14,10 +14,12 @@ public class VolleySkill : ICardSkill
 
     public void Execute(BattleContext ctx, int targetIndex)
     {
+        var caster = ctx.attackerSide.field[ctx.attackerIndex];
+        int amount = 1 + (caster != null ? caster.SkillBonus : 0);
         var snapshot = ctx.defenderSide.AliveIndices().ToList();
         foreach (int i in snapshot)
         {
-            ctx.resolver.DealDamage(ctx.defenderSide, i, 1);
+            ctx.resolver.DealDamage(ctx.defenderSide, i, amount);
         }
     }
 }

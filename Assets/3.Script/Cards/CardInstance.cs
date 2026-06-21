@@ -25,17 +25,22 @@ public class CardInstance
     /// <summary>광전사 위기 생존 패시브 1회 사용 여부.</summary>
     public bool LastStandUsed { get; private set; }
 
+    /// <summary>강화 옵션3 — 스킬 수치(회복량/데미지)에 가산되는 보너스. HealSkill/VolleySkill 에서 시전 시 읽음.</summary>
+    public int SkillBonus { get; }
+
     /// <summary>
-    /// CardDataSO 와 외부 HP 보정으로 카드 인스턴스를 만든다.
+    /// CardDataSO 와 외부 HP/스킬 보정으로 카드 인스턴스를 만든다.
     /// MaxHP = max(1, baseHP + variance 랜덤 ± + hpBonus). CurrentHP 은 MaxHP 로 시작.
     /// </summary>
-    /// <param name="hpBonus">EnemyPool 등 외부에서 가산할 HP 보정. 0 이면 효과 없음. 상호 HP 데미지 모델이라 이 값이 공격력 증가도 겸함.</param>
-    public CardInstance(CardDataSO data, int hpBonus = 0)
+    /// <param name="hpBonus">EnemyPool · RunState 강화 등 외부 HP 보정. 0 이면 효과 없음. 상호 HP 데미지 모델이라 이 값이 공격력 증가도 겸함.</param>
+    /// <param name="skillBonus">강화 이벤트의 스킬 수치 보너스. HealSkill 회복량/VolleySkill 데미지에 가산.</param>
+    public CardInstance(CardDataSO data, int hpBonus = 0, int skillBonus = 0)
     {
         this.data = data;
         int variance = data.hpVariance > 0 ? Random.Range(-data.hpVariance, data.hpVariance + 1) : 0;
         MaxHP = Mathf.Max(1, data.baseHP + variance + hpBonus);
         CurrentHP = MaxHP;
+        SkillBonus = skillBonus;
         Attack = SkillFactory.CreateAttack(data.type);
         Skill = SkillFactory.CreateSkill(data.type);
     }
