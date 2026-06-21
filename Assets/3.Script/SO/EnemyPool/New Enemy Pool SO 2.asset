@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c34d8a943a8789d4e921620e046f678b, type: 3}
+  m_Name: New Enemy Pool SO 2
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyPoolSO
+  enemies:
+  - card: {fileID: 11400000, guid: dfc2c49c3ed696a48bdedcc186f7768f, type: 2}
+    weight: 5
+  - card: {fileID: 11400000, guid: 6d44f128c45c263458b464df112cef69, type: 2}
+    weight: 2
+  - card: {fileID: 11400000, guid: e7d04ca16c6260b429f0d04644e7d754, type: 2}
+    weight: 1
+  - card: {fileID: 11400000, guid: 6618b038536bbf047a8535b60ba27acb, type: 2}
+    weight: 2
+  statBonusHP: 1
+  goldReward: 4

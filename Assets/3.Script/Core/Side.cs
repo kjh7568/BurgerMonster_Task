@@ -8,12 +8,13 @@ public class Side
     public readonly CardInstance[] standby;
 
     /// <summary>
-    /// 한 진영의 시작 상태를 만든다. startingCards의 앞 fieldSize장은 field에, 다음 fieldSize장은 standby의 같은 인덱스 슬롯에 들어간다. BattleController가 전투 시작 시 양 진영에 대해 호출.
+    /// 한 진영의 시작 상태를 만든다. startingCards 의 앞 fieldSize 장은 field 에, 다음 fieldSize 장은 standby 의 같은 인덱스 슬롯에 들어간다.
+    /// 인스턴스는 외부에서 미리 만들어 주입한다 — variance/statBonus 등 보정이 호출자(BattleController) 책임이기 때문.
     /// </summary>
     /// <param name="isPlayer">true면 플레이어 진영, false면 적 진영.</param>
-    /// <param name="startingCards">초기 카드 SO 목록(보통 6장). 앞 fieldSize장이 전장, 다음 fieldSize장이 대기 슬롯.</param>
+    /// <param name="startingCards">초기 카드 인스턴스 목록(보통 6장). 앞 fieldSize 장이 전장, 다음 fieldSize 장이 대기 슬롯.</param>
     /// <param name="fieldSize">전장 슬롯 개수(보통 3). standby 슬롯도 동일 크기로 만든다.</param>
-    public Side(bool isPlayer, IReadOnlyList<CardDataSO> startingCards, int fieldSize)
+    public Side(bool isPlayer, IReadOnlyList<CardInstance> startingCards, int fieldSize)
     {
         this.isPlayer = isPlayer;
         field = new CardInstance[fieldSize];
@@ -21,7 +22,7 @@ public class Side
 
         for (int i = 0; i < startingCards.Count; i++)
         {
-            var inst = new CardInstance(startingCards[i]);
+            var inst = startingCards[i];
             if (i < fieldSize) field[i] = inst;
             else if (i < fieldSize * 2) standby[i - fieldSize] = inst;
         }

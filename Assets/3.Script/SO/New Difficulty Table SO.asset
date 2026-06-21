@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ac401784a0b1b34dabb3d06a896c6af, type: 3}
+  m_Name: New Difficulty Table SO
+  m_EditorClassIdentifier: Assembly-CSharp::DifficultyTableSO
+  stages:
+  - minStage: 0
+    pool: {fileID: 11400000, guid: d3f2692dc092902419fe68c81ec8b6b6, type: 2}
+  - minStage: 1
+    pool: {fileID: 11400000, guid: d865717a6f2008c45b7d7ccd81283764, type: 2}
+  - minStage: 2
+    pool: {fileID: 11400000, guid: 1b87c80d5d9da354dbbc825f160c6d2f, type: 2}

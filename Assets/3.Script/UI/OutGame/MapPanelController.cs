@@ -13,6 +13,10 @@ public class MapPanelController : MonoBehaviour
     [SerializeField] private MapDataSO[] mapPool;
     [Tooltip("풀 대신 강제로 사용할 지도. 디버그/단일 테스트용. 비워두면 mapPool 에서 뽑음.")]
     [SerializeField] private MapDataSO forcedMap;
+    [Tooltip("Run 시작 시 RunState.PlayerDeck 가 비어있으면 이 풀에서 6장 셔플 픽해 채운다.")]
+    [SerializeField] private StartingDeckSO startingDeck;
+    [Tooltip("플레이어 시작 덱 크기. fieldSlotCount × 2 가 표준.")]
+    [SerializeField] private int playerDeckSize = 6;
 
     [Header("Layout")]
     [SerializeField] private RectTransform nodeContainer;
@@ -50,9 +54,37 @@ public class MapPanelController : MonoBehaviour
     {
         RunState.EnsureInitialized();
         EnsureMapSelected();
+        EnsurePlayerDeckInitialized();
         Rebuild();
         Refresh();
         CheckEnding();
+    }
+
+    /// <summary>Run 시작 시 PlayerDeck 이 비어있으면 StartingDeck 풀에서 셔플 픽해 채운다. 영입/강화 결과는 다른 시스템이 덮어쓸 것.</summary>
+    private void EnsurePlayerDeckInitialized()
+    {
+        if (RunState.PlayerDeck != null && RunState.PlayerDeck.Count > 0) return;
+        if (startingDeck == null || startingDeck.cards == null || startingDeck.cards.Length == 0)
+        {
+            Debug.LogWarning("[MapPanelController] startingDeck 미설정 — PlayerDeck 비어있음. BattleScene 의 fallback 에 의존.");
+            return;
+        }
+        var picked = new System.Collections.Generic.List<CardDataSO>(playerDeckSize);
+        var indices = new System.Collections.Generic.List<int>(startingDeck.cards.Length);
+        for (int i = 0; i < startingDeck.cards.Length; i++) indices.Add(i);
+        for (int i = indices.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            (indices[i], indices[j]) = (indices[j], indices[i]);
+        }
+        foreach (var idx in indices)
+        {
+            if (picked.Count >= playerDeckSize) break;
+            picked.Add(startingDeck.cards[idx]);
+        }
+        while (picked.Count < playerDeckSize)
+            picked.Add(startingDeck.cards[UnityEngine.Random.Range(0, startingDeck.cards.Length)]);
+        RunState.SetPlayerDeck(picked);
     }
 
     /// <summary>Run 시작 시(또는 ResetRun 직후) CurrentMap 이 비어 있으면 풀에서 한 번 뽑는다.</summary>
@@ -165,12 +197,14 @@ public class MapPanelController : MonoBehaviour
         }
     }
 
-    /// <summary>스텁 노드 완료 콜백 — 인덱스만 진행하고 지도에 머문다.</summary>
+    /// <summary>스텁 노드 완료 콜백 — 인덱스만 진행하고 지도에 머문다. 현재 노드 타입을 RunState 에 같이 넘겨 Stage 증가 트리거 판단.</summary>
     private void OnStubResolved()
     {
         var mapData = RunState.CurrentMap;
         if (mapData == null) return;
-        RunState.AdvanceNode(mapData.nodes.Count);
+        int idx = RunState.CurrentNodeIndex;
+        var type = (idx >= 0 && idx < mapData.nodes.Count) ? mapData.nodes[idx].type : NodeType.Battle;
+        RunState.AdvanceNode(mapData.nodes.Count, type);
         Refresh();
         CheckEnding();
     }

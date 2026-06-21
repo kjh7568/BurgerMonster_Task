@@ -107,7 +107,7 @@ public class CardView : MonoBehaviour
         if (illustration != null) illustration.sprite = Bound.data.illustration;
         if (nameText != null) nameText.text = Bound.data.cardName;
         if (typeIcon != null) typeIcon.sprite = LookupTypeIcon(Bound.data.type);
-        if (hpText != null) hpText.text = $"{Bound.CurrentHP}/{Bound.data.baseHP}";
+        if (hpText != null) hpText.text = $"{Bound.CurrentHP}/{Bound.MaxHP}";
 
         bool hasActiveSkill = Bound.Skill != null && Bound.Skill.IsActive;
         if (skillButton != null)
@@ -116,8 +116,8 @@ public class CardView : MonoBehaviour
             skillButton.interactable = hasActiveSkill && !Bound.SkillUsed;
         }
         if (hpBar != null)
-            hpBar.fillAmount = Bound.data.baseHP > 0
-                ? (float)Bound.CurrentHP / Bound.data.baseHP
+            hpBar.fillAmount = Bound.MaxHP > 0
+                ? (float)Bound.CurrentHP / Bound.MaxHP
                 : 0f;
         if (deadOverlay != null) deadOverlay.SetActive(Bound.IsDead);
         if (Bound.IsDead) HideActionPanel();

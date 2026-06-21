@@ -513,7 +513,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleController
   config: {fileID: 11400000, guid: fe794f45dd154784aa84023c617c708e, type: 2}
+  difficultyTable: {fileID: 11400000, guid: e39bdf3a2f2b78c4c891624ac315256e, type: 2}
   sceneUI: {fileID: 590424612}
+  fallbackStartingDeck: {fileID: 0}
 --- !u!4 &232185241
 Transform:
   m_ObjectHideFlags: 0
@@ -2034,7 +2036,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1468935091
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2519,12 +2521,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ResultUI
   panel: {fileID: 1468935090}
   resultText: {fileID: 1525001921}
-  restartButton: {fileID: 2106004258}
+  confirmButton: {fileID: 2106004258}
+  confirmLabel: {fileID: 1918295553}
   battle: {fileID: 232185240}
   victoryColor: {r: 0.4, g: 0.95, b: 0.4, a: 1}
   defeatColor: {r: 0.95, g: 0.4, b: 0.4, a: 1}
   victoryLabel: VICTORY
   defeatLabel: DEFEAT
+  toMapLabel: "\uC9C0\uB3C4\uB85C"
+  toTitleLabel: "\uD0C0\uC774\uD2C0\uB85C \uB3CC\uC544\uAC00\uAE30"
 --- !u!4 &1871332819
 Transform:
   m_ObjectHideFlags: 0
@@ -2645,7 +2650,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uB2E4\uC2DC\uD558\uAE30"
+  m_text: "\uB9F5\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: fbf1f256c5c26ba47a547beb2a8692ac, type: 2}
   m_sharedMaterial: {fileID: 9046914311633896482, guid: fbf1f256c5c26ba47a547beb2a8692ac, type: 2}

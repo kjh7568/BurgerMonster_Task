@@ -9,7 +9,12 @@ public enum PendingActionKind { Attack, Skill }
 public class BattleController : MonoBehaviour
 {
     [SerializeField] BattleConfigSO config;
+    [SerializeField] DifficultyTableSO difficultyTable;
     [SerializeField] BattleSceneUI sceneUI; // 애니메이션 오케스트레이션용. null 이어도 게임 로직은 동작.
+
+    [Header("Fallback (RunState.PlayerDeck 비어있을 때만)")]
+    [Tooltip("MapScene 을 거치지 않고 BattleScene 을 단독 실행할 때 사용할 시작 풀. 정상 플로우에선 RunState.PlayerDeck 이 이미 채워져 있음.")]
+    [SerializeField] StartingDeckSO fallbackStartingDeck;
 
     public BattleConfigSO Config => config;
 
@@ -19,6 +24,9 @@ public class BattleController : MonoBehaviour
     public Side CurrentSide { get; private set; }
     public Side Winner { get; private set; }
     public DamageResolver Resolver { get; private set; }
+
+    /// <summary>이번 전투에 적용된 적 풀. 승리 시 goldReward 가산을 위해 보관.</summary>
+    public EnemyPoolSO CurrentEnemyPool { get; private set; }
 
     public int TurnNumber { get; private set; }
     public int PendingAttackerIdx { get; private set; } = -1;
@@ -35,10 +43,106 @@ public class BattleController : MonoBehaviour
     private void Init()
     {
         State = BattleState.Init;
-        Player = new Side(true, config.playerStartingCards, config.fieldSlotCount);
-        Opponent = new Side(false, config.opponentStartingCards, config.fieldSlotCount);
+        var playerCards = BuildPlayerCards(config.fieldSlotCount);
+        var opponentCards = BuildOpponentCards(config.fieldSlotCount);
+        Player = new Side(true, playerCards, config.fieldSlotCount);
+        Opponent = new Side(false, opponentCards, config.fieldSlotCount);
         Resolver = new DamageResolver();
         SetState(BattleState.PlayerTurnStart);
+    }
+
+    /// <summary>
+    /// RunState.PlayerDeck 에서 (필요 슬롯 수 × 2) 만큼 인스턴스화. 비어있으면 fallbackStartingDeck 에서 셔플 픽.
+    /// variance 는 CardInstance 생성자에서 자동 적용.
+    /// </summary>
+    private List<CardInstance> BuildPlayerCards(int fieldSize)
+    {
+        int needed = fieldSize * 2;
+        var sources = new List<CardDataSO>();
+        if (RunState.PlayerDeck != null && RunState.PlayerDeck.Count > 0)
+        {
+            sources.AddRange(RunState.PlayerDeck);
+        }
+        else if (fallbackStartingDeck != null && fallbackStartingDeck.cards != null && fallbackStartingDeck.cards.Length > 0)
+        {
+            sources.AddRange(ShufflePickWithRefill(fallbackStartingDeck.cards, needed));
+            Debug.LogWarning("[Battle] RunState.PlayerDeck 비어있음 — fallbackStartingDeck 사용 (BattleScene 단독 테스트 모드).");
+        }
+        else
+        {
+            Debug.LogError("[Battle] 플레이어 카드 소스 없음 (RunState/fallback 둘 다 비어있음).");
+        }
+
+        var result = new List<CardInstance>(needed);
+        for (int i = 0; i < sources.Count && i < needed; i++)
+            result.Add(new CardInstance(sources[i]));
+        return result;
+    }
+
+    /// <summary>
+    /// 현재 stage 의 EnemyPool 에서 weighted pick. statBonusHP 를 CardInstance 생성자에 주입.
+    /// 상호 HP 데미지 모델이므로 HP 보정 = 공격력 보정도 겸함.
+    /// 풀/테이블 미설정 시 빈 리스트 — 즉시 게임 종료 판정.
+    /// </summary>
+    private List<CardInstance> BuildOpponentCards(int fieldSize)
+    {
+        int needed = fieldSize * 2;
+        var result = new List<CardInstance>(needed);
+        if (difficultyTable == null)
+        {
+            Debug.LogError("[Battle] DifficultyTableSO 미설정.");
+            return result;
+        }
+        var pool = difficultyTable.Resolve(RunState.Stage);
+        if (pool == null || pool.enemies == null || pool.enemies.Length == 0)
+        {
+            Debug.LogError($"[Battle] stage={RunState.Stage} 에 해당하는 EnemyPool 없음.");
+            return result;
+        }
+        CurrentEnemyPool = pool;
+        for (int i = 0; i < needed; i++)
+        {
+            var data = WeightedPick(pool.enemies);
+            if (data == null) break;
+            result.Add(new CardInstance(data, pool.statBonusHP));
+        }
+        Debug.Log($"[Battle] Opponent built from pool '{pool.name}' (stage={RunState.Stage}, +HP={pool.statBonusHP}, gold={pool.goldReward})");
+        return result;
+    }
+
+    private static CardDataSO WeightedPick(EnemyPoolSO.EnemyEntry[] entries)
+    {
+        int total = 0;
+        for (int i = 0; i < entries.Length; i++) total += Mathf.Max(0, entries[i].weight);
+        if (total <= 0) return entries.Length > 0 ? entries[0].card : null;
+        int roll = UnityEngine.Random.Range(0, total);
+        int acc = 0;
+        for (int i = 0; i < entries.Length; i++)
+        {
+            acc += Mathf.Max(0, entries[i].weight);
+            if (roll < acc) return entries[i].card;
+        }
+        return entries[entries.Length - 1].card;
+    }
+
+    /// <summary>풀 전체 셔플로 우선 채우고, 부족분은 중복 허용 랜덤. #30 의 variety 우선 정책.</summary>
+    private static List<CardDataSO> ShufflePickWithRefill(CardDataSO[] pool, int count)
+    {
+        var result = new List<CardDataSO>(count);
+        var indices = new List<int>(pool.Length);
+        for (int i = 0; i < pool.Length; i++) indices.Add(i);
+        for (int i = indices.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            (indices[i], indices[j]) = (indices[j], indices[i]);
+        }
+        foreach (var idx in indices)
+        {
+            if (result.Count >= count) break;
+            result.Add(pool[idx]);
+        }
+        while (result.Count < count) result.Add(pool[UnityEngine.Random.Range(0, pool.Length)]);
+        return result;
     }
 
     public BattleContext BuildContext(Side attacker, int attackerIdx)
@@ -234,6 +338,8 @@ public class BattleController : MonoBehaviour
         if (Player.IsDefeated || Opponent.IsDefeated)
         {
             Winner = Opponent.IsDefeated ? Player : Opponent;
+            if (Winner == Player && CurrentEnemyPool != null)
+                RunState.AddGold(CurrentEnemyPool.goldReward);
             SetState(BattleState.GameEnd);
             OnGameEnded?.Invoke(Winner);
             return true;

@@ -10,6 +10,9 @@ public class CardInstance
     /// <summary>카드 고유 스킬 — 생존 중 단 1회. 패시브는 IsActive=false 로 표시되며 게임 이벤트로 자동 트리거.</summary>
     public ICardSkill Skill { get; }
 
+    /// <summary>이 인스턴스의 HP 상한. baseHP + variance 흔들림 + 외부 hpBonus(EnemyPool 등). 회복 상한·HP바 fillAmount 의 분모로 사용. 상호 HP 데미지 모델에선 이 값이 곧 공격력이기도 함.</summary>
+    public int MaxHP { get; }
+
     public int CurrentHP { get; private set; }
     public bool IsDead => CurrentHP <= 0;
 
@@ -23,12 +26,16 @@ public class CardInstance
     public bool LastStandUsed { get; private set; }
 
     /// <summary>
-    /// CardDataSO를 기반으로 새 카드 인스턴스를 만든다. CurrentHP=baseHP, Attack/Skill은 타입에 맞춰 자동 생성.
+    /// CardDataSO 와 외부 HP 보정으로 카드 인스턴스를 만든다.
+    /// MaxHP = max(1, baseHP + variance 랜덤 ± + hpBonus). CurrentHP 은 MaxHP 로 시작.
     /// </summary>
-    public CardInstance(CardDataSO data)
+    /// <param name="hpBonus">EnemyPool 등 외부에서 가산할 HP 보정. 0 이면 효과 없음. 상호 HP 데미지 모델이라 이 값이 공격력 증가도 겸함.</param>
+    public CardInstance(CardDataSO data, int hpBonus = 0)
     {
         this.data = data;
-        CurrentHP = data.baseHP;
+        int variance = data.hpVariance > 0 ? Random.Range(-data.hpVariance, data.hpVariance + 1) : 0;
+        MaxHP = Mathf.Max(1, data.baseHP + variance + hpBonus);
+        CurrentHP = MaxHP;
         Attack = SkillFactory.CreateAttack(data.type);
         Skill = SkillFactory.CreateSkill(data.type);
     }
@@ -48,6 +55,6 @@ public class CardInstance
         CurrentHP = next;
     }
 
-    /// <summary>HP를 amount만큼 회복. baseHP 상한 클램프.</summary>
-    public void Heal(int amount) => CurrentHP = Mathf.Min(data.baseHP, CurrentHP + amount);
+    /// <summary>HP를 amount만큼 회복. MaxHP 상한 클램프.</summary>
+    public void Heal(int amount) => CurrentHP = Mathf.Min(MaxHP, CurrentHP + amount);
 }
