@@ -14,7 +14,6 @@ public class ResultUI : MonoBehaviour
     [SerializeField] private Button confirmButton;
     [SerializeField] private TMP_Text confirmLabel;
     [SerializeField] private BattleController battle;
-    [SerializeField] private MapDataSO mapData;
 
     [Header("Result Colors")]
     [SerializeField] private Color victoryColor = new Color(0.4f, 0.95f, 0.4f);
@@ -57,16 +56,17 @@ public class ResultUI : MonoBehaviour
 
     private void OnConfirm()
     {
-        if (mapData == null)
+        var map = RunState.CurrentMap;
+        if (map == null)
         {
-            // 지도 시스템 미사용 — 기존 동작 유지(씬 재로드).
+            // 지도 없이 BattleScene 단독 실행 — 기존 동작(씬 재로드).
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             return;
         }
 
         if (playerWon)
         {
-            RunState.AdvanceNode(mapData.nodes.Count);
+            RunState.AdvanceNode(map.nodes.Count);
             SceneManager.LoadScene(SceneNames.Map);
         }
         else

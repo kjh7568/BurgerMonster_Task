@@ -11,6 +11,8 @@ public static class RunState
 
     public static int CurrentNodeIndex { get; private set; }
     public static bool RunCompleted { get; private set; }
+    /// <summary>이번 Run 에서 선택된 지도. MapPanelController 가 Run 시작 시 풀에서 한 번 뽑아 세팅한다.</summary>
+    public static MapDataSO CurrentMap { get; private set; }
 
     public static void EnsureInitialized()
     {
@@ -22,8 +24,15 @@ public static class RunState
     {
         CurrentNodeIndex = 0;
         RunCompleted = false;
+        CurrentMap = null;
         initialized = true;
         Debug.Log("[RunState] Reset");
+    }
+
+    public static void SelectMap(MapDataSO map)
+    {
+        CurrentMap = map;
+        Debug.Log($"[RunState] Map selected: {(map != null ? map.name : "null")}");
     }
 
     public static void AdvanceNode(int totalNodes)

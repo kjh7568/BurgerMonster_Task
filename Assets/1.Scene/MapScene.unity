@@ -2545,9 +2545,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b33693629990a024fb7d0d4933ace7c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapPanelController
-  mapData: {fileID: 11400000, guid: 0d002096e6efcb24090c6fd61c70254d, type: 2}
+  mapPool:
+  - {fileID: 11400000, guid: b65e0c8d10ba4e04cbb47856f901c2e7, type: 2}
+  - {fileID: 11400000, guid: 20ef4bdb3e97614408292ba68a912137, type: 2}
+  - {fileID: 11400000, guid: a9f28b13bc15fb64abddd974284550cd, type: 2}
+  - {fileID: 11400000, guid: 11311752e325d464087166397de53425, type: 2}
+  - {fileID: 11400000, guid: a450a8265abba714f92cc501a1d20795, type: 2}
+  forcedMap: {fileID: 0}
   nodeContainer: {fileID: 514378715}
   nodeButtonPrefab: {fileID: 7681053632910867259, guid: cf89c1f99b8404e4488d7a5446373c8f, type: 3}
+  startPosition: {x: 0, y: -750}
+  stepOffset: {x: 0, y: 250}
+  xJitterMin: -150
+  xJitterMax: 150
+  maxStepX: 150
+  xJitterStep: 30
+  randomSeed: 12345
   battleIcon: {fileID: -5788840176292268323, guid: 767631a2b6677f246bf2220b2ad7f23f, type: 3}
   upgradeIcon: {fileID: -9001266942062728648, guid: ae69d520c178d9d4ea623456d4d10e8f, type: 3}
   recruitIcon: {fileID: -9001266942062728648, guid: ae69d520c178d9d4ea623456d4d10e8f, type: 3}
