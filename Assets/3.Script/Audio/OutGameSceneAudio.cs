@@ -8,10 +8,13 @@ public class OutGameSceneAudio : MonoBehaviour
     [SerializeField] private AudioClip outGameBGM;
     [SerializeField] private AudioClip openMapSfx;
 
+    [SerializeField] private bool playOpenMapOnStart = true;
+
     private void Start()
     {
         if (AudioManager.Instance != null && outGameBGM != null)
             AudioManager.Instance.PlayBGM(outGameBGM);
+        if (playOpenMapOnStart) PlayOpenMap();
     }
 
     public void PlayOpenMap()
