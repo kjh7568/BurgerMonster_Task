@@ -15,6 +15,7 @@ public class SaveData
     public RunSnapshot run;       // null 이면 진행 중 Run 없음
     public BattleSnapshot battle; // null 이면 전투 중 아님 (= 지도에서 종료됨)
     public string activeScene;    // 이어하기 시 어느 씬으로 갈지 결정. "" 면 Map.
+    public bool hasSeenIntro;     // 오프닝 컷씬을 1회라도 본 적 있으면 true. 새 게임 시 false 면 오프닝 재생.
 }
 
 [Serializable]
