@@ -47,6 +47,7 @@ public class BattleController : MonoBehaviour
     {
         State = BattleState.Init;
         Resolver = new DamageResolver();
+        Resolver.OnCardDied += HandleCardDiedScore;
 
         var pending = PendingRestoreSnapshot;
         PendingRestoreSnapshot = null;
@@ -424,6 +425,21 @@ public class BattleController : MonoBehaviour
         SetState(CurrentSide == Player
             ? BattleState.OpponentTurnStart
             : BattleState.PlayerTurnStart);
+    }
+
+    /// <summary>카드 사망 이벤트 — Run 점수 누적. 적 처치 시 풀 difficulty × 100, 플레이어 카드 사망 시 -50.</summary>
+    private void HandleCardDiedScore(Side side, int slotIdx, CardInstance card)
+    {
+        if (side == null) return;
+        if (side.isPlayer)
+        {
+            RunState.AddPlayerDeathPenalty();
+        }
+        else
+        {
+            int diff = CurrentEnemyPool != null ? Mathf.Max(1, CurrentEnemyPool.difficulty) : 1;
+            RunState.AddEnemyKillScore(diff);
+        }
     }
 
     private bool CheckGameEnd()

@@ -23,3 +23,4 @@ MonoBehaviour:
     weight: 2
   statBonusHP: 0
   goldReward: 4
+  difficulty: 2

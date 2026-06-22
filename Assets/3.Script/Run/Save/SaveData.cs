@@ -16,6 +16,7 @@ public class SaveData
     public BattleSnapshot battle; // null 이면 전투 중 아님 (= 지도에서 종료됨)
     public string activeScene;    // 이어하기 시 어느 씬으로 갈지 결정. "" 면 Map.
     public bool hasSeenIntro;     // 오프닝 컷씬을 1회라도 본 적 있으면 true. 새 게임 시 false 면 오프닝 재생.
+    public bool hasClearedRun;    // Run 을 1회라도 클리어한 적 있으면 true. 첫 클리어에만 엔딩 컷씬 재생.
 }
 
 [Serializable]
@@ -32,6 +33,7 @@ public class RunSnapshot
     public int currentNodeIndex;
     public int stage;
     public int gold;
+    public int score;
     public int globalHpBonus;
     public List<string> deckCardIds = new List<string>();
     public List<int> perCardHpBonus = new List<int>();

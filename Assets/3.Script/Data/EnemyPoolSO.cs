@@ -22,4 +22,7 @@ public class EnemyPoolSO : ScriptableObject
 
     [Tooltip("이 풀의 적을 처치(전투 승리)했을 때 획득할 골드.")]
     public int goldReward;
+
+    [Tooltip("이 풀의 적 1장 처치 시 가산될 점수의 난이도(1~3). 점수 = difficulty × 100. 후반 풀일수록 큰 값.")]
+    [Range(1, 3)] public int difficulty = 1;
 }

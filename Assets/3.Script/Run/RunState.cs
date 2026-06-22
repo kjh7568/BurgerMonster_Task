@@ -21,6 +21,12 @@ public static class RunState
     /// <summary>Run 동안 누적 골드. 전투 승리 시 EnemyPool.goldReward 가 더해지고, 용병 영입 노드에서 소모.</summary>
     public static int Gold { get; private set; }
 
+    /// <summary>Run 동안 누적 점수. 적 처치 시 EnemyPool.difficulty × 100, 플레이어 카드 사망 시 -50.</summary>
+    public static int Score { get; private set; }
+
+    /// <summary>플레이어 카드 1장 사망 시 차감되는 점수(절댓값).</summary>
+    public const int PlayerDeathPenalty = 50;
+
     /// <summary>플레이어 덱(시작 6장 + 영입/강화 결과). MapScene 진입 시 비어있으면 StartingDeck 에서 픽해 초기화.</summary>
     public static List<CardDataSO> PlayerDeck { get; private set; } = new List<CardDataSO>();
 
@@ -46,6 +52,7 @@ public static class RunState
         CurrentMap = null;
         Stage = 0;
         Gold = 0;
+        Score = 0;
         PlayerDeck.Clear();
         GlobalHpBonus = 0;
         perCardHpBonus.Clear();
@@ -127,6 +134,22 @@ public static class RunState
         Debug.Log($"[RunState] Gold set → {Gold}");
     }
 
+    /// <summary>적 처치 점수 가산. EnemyPool.difficulty(1~3) × 100 을 더한다.</summary>
+    public static void AddEnemyKillScore(int difficulty)
+    {
+        if (difficulty <= 0) difficulty = 1;
+        int gained = difficulty * 100;
+        Score += gained;
+        Debug.Log($"[RunState] Score +{gained} (kill, difficulty={difficulty}) → {Score}");
+    }
+
+    /// <summary>플레이어 카드 사망 점수 차감.</summary>
+    public static void AddPlayerDeathPenalty()
+    {
+        Score -= PlayerDeathPenalty;
+        Debug.Log($"[RunState] Score -{PlayerDeathPenalty} (player card died) → {Score}");
+    }
+
     /// <summary>amount 만큼 골드 차감 시도. 잔액 부족이면 false 반환하고 차감 안 함.</summary>
     public static bool SpendGold(int amount)
     {
@@ -161,6 +184,7 @@ public static class RunState
         CurrentNodeIndex = Mathf.Max(0, snap.currentNodeIndex);
         Stage = Mathf.Max(0, snap.stage);
         Gold = Mathf.Max(0, snap.gold);
+        Score = snap.score;
         GlobalHpBonus = Mathf.Max(0, snap.globalHpBonus);
 
         PlayerDeck.Clear();
@@ -197,6 +221,7 @@ public static class RunState
             currentNodeIndex = CurrentNodeIndex,
             stage = Stage,
             gold = Gold,
+            score = Score,
             globalHpBonus = GlobalHpBonus,
         };
         foreach (var c in PlayerDeck) snap.deckCardIds.Add(GameAssetsSO.CardId(c));
