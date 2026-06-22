@@ -79,13 +79,14 @@ public class ResultUI : MonoBehaviour
         if (playerWon)
         {
             RunState.AdvanceNode(map.nodes.Count, NodeType.Battle);
+            SaveBridge.SaveAfterBattleWin();
             SceneManager.LoadScene(SceneNames.Map);
         }
         else
         {
-            // 패배 — Run 초기화 후 타이틀로. 아직 타이틀 씬이 없으면 MapScene 으로 fallback.
+            // 패배 — 세이브는 BattleSaveTrigger.HandleGameEnded 에서 이미 삭제됨.
             RunState.ResetRun();
-            SceneManager.LoadScene(string.IsNullOrEmpty(SceneNames.Title) ? SceneNames.Map : SceneNames.Title);
+            SceneManager.LoadScene(SceneNames.Title);
         }
     }
 }

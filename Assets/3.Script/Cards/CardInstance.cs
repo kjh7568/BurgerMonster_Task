@@ -45,6 +45,26 @@ public class CardInstance
         Skill = SkillFactory.CreateSkill(data.type);
     }
 
+    /// <summary>세이브 로드용 — variance 를 다시 굴리지 않고 보존된 MaxHP/CurrentHP/상태 플래그를 그대로 복원.</summary>
+    private CardInstance(CardDataSO data, int maxHP, int currentHP, int skillBonus, bool skillUsed, bool isTaunting, bool lastStandUsed)
+    {
+        this.data = data;
+        MaxHP = Mathf.Max(1, maxHP);
+        CurrentHP = Mathf.Clamp(currentHP, 0, MaxHP);
+        SkillBonus = skillBonus;
+        SkillUsed = skillUsed;
+        IsTaunting = isTaunting;
+        LastStandUsed = lastStandUsed;
+        Attack = SkillFactory.CreateAttack(data.type);
+        Skill = SkillFactory.CreateSkill(data.type);
+    }
+
+    public static CardInstance CreateRestored(CardDataSO data, int maxHP, int currentHP, int skillBonus, bool skillUsed, bool isTaunting, bool lastStandUsed)
+    {
+        if (data == null) return null;
+        return new CardInstance(data, maxHP, currentHP, skillBonus, skillUsed, isTaunting, lastStandUsed);
+    }
+
     /// <summary>
     /// 피해 적용. 광전사이면서 LastStand 미사용 상태에서 죽을 데미지를 받으면 HP=1로 클램프하고 LastStandUsed=true.
     /// </summary>

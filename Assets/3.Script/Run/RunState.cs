@@ -150,6 +150,61 @@ public static class RunState
         Debug.Log($"[RunState] PlayerDeck[{deckIndex}] {old?.cardName} → {newCard.cardName} (bonuses reset)");
     }
 
+    /// <summary>세이브 복원 — 이전 Run 상태를 통째로 덮어쓴다. EnsureInitialized 는 호출자가 책임.</summary>
+    public static void RestoreFromSnapshot(RunSnapshot snap)
+    {
+        if (snap == null) { ResetRun(); return; }
+        ResetRun();
+        CurrentMap = GameAssetsSO.ResolveMap(snap.mapId);
+        if (CurrentMap == null && !string.IsNullOrEmpty(snap.mapId))
+            Debug.LogError($"[RunState] 세이브 복원 실패 — GameAssetsSO.allMaps 에 mapId '{snap.mapId}' 가 없음. Resources/GameAssets.asset 의 All Maps 배열에 해당 MapDataSO 자산을 등록해야 함.");
+        CurrentNodeIndex = Mathf.Max(0, snap.currentNodeIndex);
+        Stage = Mathf.Max(0, snap.stage);
+        Gold = Mathf.Max(0, snap.gold);
+        GlobalHpBonus = Mathf.Max(0, snap.globalHpBonus);
+
+        PlayerDeck.Clear();
+        if (snap.deckCardIds != null)
+        {
+            foreach (var id in snap.deckCardIds)
+            {
+                var card = GameAssetsSO.ResolveCard(id);
+                if (card != null) PlayerDeck.Add(card);
+                else Debug.LogError($"[RunState] 세이브 복원 실패 — GameAssetsSO.allCards 에 cardId '{id}' 가 없음. Resources/GameAssets.asset 의 All Cards 배열에 해당 CardDataSO 자산을 등록해야 함. 이 슬롯은 누락된 상태로 진행됨.");
+            }
+        }
+        SyncBonusLists();
+        if (snap.perCardHpBonus != null)
+            for (int i = 0; i < perCardHpBonus.Count && i < snap.perCardHpBonus.Count; i++)
+                perCardHpBonus[i] = snap.perCardHpBonus[i];
+        if (snap.perCardSkillBonus != null)
+            for (int i = 0; i < perCardSkillBonus.Count && i < snap.perCardSkillBonus.Count; i++)
+                perCardSkillBonus[i] = snap.perCardSkillBonus[i];
+
+        if (CurrentMap != null && CurrentNodeIndex >= CurrentMap.nodes.Count)
+            RunCompleted = true;
+
+        Debug.Log($"[RunState] Restored — node={CurrentNodeIndex}, stage={Stage}, gold={Gold}, deck={PlayerDeck.Count}");
+    }
+
+    /// <summary>현재 Run 상태를 직렬화 친화 스냅샷으로 변환. Run 진행이 없으면 null.</summary>
+    public static RunSnapshot CaptureSnapshot()
+    {
+        if (CurrentMap == null && PlayerDeck.Count == 0 && Gold == 0) return null;
+        var snap = new RunSnapshot
+        {
+            mapId = GameAssetsSO.MapId(CurrentMap),
+            currentNodeIndex = CurrentNodeIndex,
+            stage = Stage,
+            gold = Gold,
+            globalHpBonus = GlobalHpBonus,
+        };
+        foreach (var c in PlayerDeck) snap.deckCardIds.Add(GameAssetsSO.CardId(c));
+        snap.perCardHpBonus.AddRange(perCardHpBonus);
+        snap.perCardSkillBonus.AddRange(perCardSkillBonus);
+        return snap;
+    }
+
     /// <summary>현재 노드 완료 처리. 인덱스를 1 증가시키고, 완료한 노드가 이벤트(Upgrade/Recruit)면 Stage 도 +1.</summary>
     public static void AdvanceNode(int totalNodes, NodeType completedType)
     {

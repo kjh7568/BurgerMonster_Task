@@ -68,6 +68,8 @@ public class MapPanelController : MonoBehaviour
         Rebuild();
         Refresh();
         CheckEnding();
+        // 지도 도착 시점에 한 번 저장 — 전투 끝나고 돌아온 직후나 새 Run 시작 직후 모두 동일하게 동작.
+        SaveBridge.SaveBeforeNodeEntry(SceneNames.Map);
     }
 
     /// <summary>Run 시작 시점(첫 노드 진입) 에 한해 debugInitialGold 적용. 전투 보상 누적분 덮어쓰지 않기 위해 CurrentNodeIndex==0 일 때만 동작.</summary>
@@ -202,6 +204,7 @@ public class MapPanelController : MonoBehaviour
         switch (type)
         {
             case NodeType.Battle:
+                SaveBridge.SaveBeforeNodeEntry(SceneNames.Battle);
                 SceneManager.LoadScene(SceneNames.Battle);
                 break;
             case NodeType.Upgrade:
@@ -257,5 +260,7 @@ public class MapPanelController : MonoBehaviour
         RunState.AdvanceNode(mapData.nodes.Count, type);
         Refresh();
         CheckEnding();
+        // 이벤트 노드 완료(강화/영입) 결과를 디스크에 반영.
+        SaveBridge.SaveBeforeNodeEntry(SceneNames.Map);
     }
 }

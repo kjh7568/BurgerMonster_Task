@@ -40,6 +40,14 @@ public class AudioManager : MonoBehaviour
         sfxSource = CreateSource("SFX", loop: false);
         sfxSource.volume = 1f; // BGM 은 크로스페이드가 볼륨을 올리지만 SFX 는 PlayOneShot 의 volumeScale 만 곱하므로 1 로 둬야 들림
         activeBgm = bgmA;
+
+        // 저장된 설정이 있으면 인스펙터 기본값을 덮어쓴다.
+        var settings = SaveSystem.Current?.settings;
+        if (settings != null)
+        {
+            bgmVolume = Mathf.Clamp01(settings.bgmVolume);
+            sfxVolume = Mathf.Clamp01(settings.sfxVolume);
+        }
     }
 
     private AudioSource CreateSource(string name, bool loop)

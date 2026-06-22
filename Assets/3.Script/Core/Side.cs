@@ -28,6 +28,19 @@ public class Side
         }
     }
 
+    /// <summary>세이브 복원용 — field/standby 슬롯별 배치를 직접 지정. null 슬롯은 빈 칸으로 들어간다.</summary>
+    private Side(bool isPlayer, CardInstance[] field, CardInstance[] standby)
+    {
+        this.isPlayer = isPlayer;
+        this.field = field;
+        this.standby = standby;
+    }
+
+    public static Side CreateRestored(bool isPlayer, CardInstance[] field, CardInstance[] standby)
+    {
+        return new Side(isPlayer, field, standby);
+    }
+
     public int StandbyCount => standby.Count(c => c != null);
 
     public bool IsDefeated => field.All(c => c == null) && StandbyCount == 0;
