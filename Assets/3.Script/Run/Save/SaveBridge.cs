@@ -69,7 +69,7 @@ public static class SaveBridge
         {
             Debug.LogWarning("[SaveBridge] Resume 시도 — 저장된 Run 없음. 새 게임으로 폴백.");
             StartNewRun();
-            SceneManager.LoadScene(SceneNames.Map);
+            SceneLoader.LoadAsync(SceneNames.Map);
             return;
         }
 
@@ -77,11 +77,11 @@ public static class SaveBridge
         if (data.battle != null)
         {
             BattleController.PendingRestoreSnapshot = data.battle;
-            SceneManager.LoadScene(SceneNames.Battle);
+            SceneLoader.LoadAsync(SceneNames.Battle);
         }
         else
         {
-            SceneManager.LoadScene(SceneNames.Map);
+            SceneLoader.LoadAsync(SceneNames.Map);
         }
     }
 }

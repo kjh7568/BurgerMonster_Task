@@ -72,7 +72,7 @@ public class ResultUI : MonoBehaviour
         if (map == null)
         {
             // 지도 없이 BattleScene 단독 실행 — MapScene 으로 가서 Run 진입 흐름을 다시 탄다.
-            SceneManager.LoadScene(SceneNames.Map);
+            SceneLoader.LoadAsync(SceneNames.Map);
             return;
         }
 
@@ -80,13 +80,13 @@ public class ResultUI : MonoBehaviour
         {
             RunState.AdvanceNode(map.nodes.Count, NodeType.Battle);
             SaveBridge.SaveAfterBattleWin();
-            SceneManager.LoadScene(SceneNames.Map);
+            SceneLoader.LoadAsync(SceneNames.Map);
         }
         else
         {
             // 패배 — 세이브는 BattleSaveTrigger.HandleGameEnded 에서 이미 삭제됨.
             RunState.ResetRun();
-            SceneManager.LoadScene(SceneNames.Title);
+            SceneLoader.LoadAsync(SceneNames.Title);
         }
     }
 }

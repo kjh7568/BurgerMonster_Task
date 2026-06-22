@@ -153,7 +153,7 @@ public class OpeningController : MonoBehaviour
             data.hasSeenIntro = true;
             SaveSystem.Flush();
         }
-        SceneManager.LoadScene(SceneNames.Map);
+        SceneLoader.LoadAsync(SceneNames.Map);
     }
 
     private System.Collections.IEnumerator Fade(float from, float to)

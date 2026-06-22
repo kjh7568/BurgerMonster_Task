@@ -99,7 +99,7 @@ public class TitleController : MonoBehaviour
         // 오프닝 컷씬을 한 번도 본 적 없으면 먼저 재생, 그렇지 않으면 곧장 지도.
         // (StartNewRun 은 run/battle 만 비울 뿐 hasSeenIntro 는 보존하므로 두 번째 새 게임부터는 자동 스킵.)
         bool seen = SaveSystem.Current != null && SaveSystem.Current.hasSeenIntro;
-        SceneManager.LoadScene(seen ? SceneNames.Map : SceneNames.Opening);
+        SceneLoader.LoadAsync(seen ? SceneNames.Map : SceneNames.Opening);
     }
 
     private void OnSettings()

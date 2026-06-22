@@ -34,6 +34,6 @@ public class EndingPanel : MonoBehaviour
     private void StartNewRun()
     {
         RunState.ResetRun();
-        SceneManager.LoadScene(SceneNames.Map);
+        SceneLoader.LoadAsync(SceneNames.Map);
     }
 }

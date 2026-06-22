@@ -111,6 +111,6 @@ public class SettingsPanel : MonoBehaviour
         else SaveSystem.Flush();
 
         if (root != null) root.SetActive(false);
-        SceneManager.LoadScene(SceneNames.Title);
+        SceneLoader.LoadAsync(SceneNames.Title);
     }
 }
