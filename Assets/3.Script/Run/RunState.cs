@@ -39,6 +39,12 @@ public static class RunState
     /// <summary>강화 이벤트 옵션3 — PlayerDeck 인덱스별 스킬 수치 보너스(HealSkill 회복량, VolleySkill 데미지). 길이는 PlayerDeck.Count 와 동기화.</summary>
     private static readonly List<int> perCardSkillBonus = new List<int>();
 
+    /// <summary>3x2 배치 결과 — 길이 6. layout[slotIdx] = PlayerDeck 인덱스(0~5) 또는 -1(빈 슬롯). FirstSetup 완료 전이면 LayoutConfirmed=false.</summary>
+    private static readonly int[] layout = new int[LayoutSize];
+    public const int LayoutSize = 6;
+    /// <summary>FirstSetup 모드에서 [확정] 을 1회라도 눌렀는지. MapPanelController 가 첫 진입 시 자동으로 FirstSetup 을 띄울지 판단할 때 사용.</summary>
+    public static bool LayoutConfirmed { get; private set; }
+
     public static void EnsureInitialized()
     {
         if (initialized) return;
@@ -57,8 +63,35 @@ public static class RunState
         GlobalHpBonus = 0;
         perCardHpBonus.Clear();
         perCardSkillBonus.Clear();
+        ClearLayout();
         initialized = true;
         Debug.Log("[RunState] Reset");
+    }
+
+    /// <summary>모든 슬롯을 -1(빈) 로 초기화하고 LayoutConfirmed=false.</summary>
+    public static void ClearLayout()
+    {
+        for (int i = 0; i < layout.Length; i++) layout[i] = -1;
+        LayoutConfirmed = false;
+    }
+
+    /// <summary>슬롯 i 의 PlayerDeck 인덱스. -1 = 빈 슬롯. 범위 밖이면 -1.</summary>
+    public static int GetLayoutAt(int slot)
+    {
+        return (slot >= 0 && slot < layout.Length) ? layout[slot] : -1;
+    }
+
+    /// <summary>FirstSetup/DeckView 에서 [확정] 시 호출. 길이 6 배열을 그대로 복사하고 LayoutConfirmed=true.</summary>
+    public static void CommitLayout(int[] slots)
+    {
+        if (slots == null || slots.Length != layout.Length)
+        {
+            Debug.LogError($"[RunState] CommitLayout 실패 — 길이 {layout.Length} 가 아닌 입력({(slots == null ? "null" : slots.Length.ToString())}).");
+            return;
+        }
+        for (int i = 0; i < layout.Length; i++) layout[i] = slots[i];
+        LayoutConfirmed = true;
+        Debug.Log($"[RunState] Layout committed → [{string.Join(",", layout)}]");
     }
 
     public static void SelectMap(MapDataSO map)
@@ -205,6 +238,14 @@ public static class RunState
             for (int i = 0; i < perCardSkillBonus.Count && i < snap.perCardSkillBonus.Count; i++)
                 perCardSkillBonus[i] = snap.perCardSkillBonus[i];
 
+        // layout 복원 — 비어있으면 FirstSetup 미완료, 길이 6 이 채워져 있으면 LayoutConfirmed=true.
+        ClearLayout();
+        if (snap.layout != null && snap.layout.Count == layout.Length)
+        {
+            for (int i = 0; i < layout.Length; i++) layout[i] = snap.layout[i];
+            LayoutConfirmed = true;
+        }
+
         if (CurrentMap != null && CurrentNodeIndex >= CurrentMap.nodes.Count)
             RunCompleted = true;
 
@@ -227,6 +268,7 @@ public static class RunState
         foreach (var c in PlayerDeck) snap.deckCardIds.Add(GameAssetsSO.CardId(c));
         snap.perCardHpBonus.AddRange(perCardHpBonus);
         snap.perCardSkillBonus.AddRange(perCardSkillBonus);
+        if (LayoutConfirmed) for (int i = 0; i < layout.Length; i++) snap.layout.Add(layout[i]);
         return snap;
     }
 

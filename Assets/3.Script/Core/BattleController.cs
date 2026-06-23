@@ -163,12 +163,29 @@ public class BattleController : MonoBehaviour
         bool fromRunState = RunState.PlayerDeck != null && RunState.PlayerDeck.Count > 0;
         int globalHpBonus = fromRunState ? RunState.GlobalHpBonus : 0;
 
+        // layout 이 확정되어 있으면 그 순서대로 인스턴스화. layout[i] = 덱 인덱스(또는 -1 빈 슬롯).
+        // 슬롯 0..2 는 field, 3..5 는 standby 로 Side 생성자가 자연스럽게 매핑한다.
+        bool useLayout = fromRunState && RunState.LayoutConfirmed;
         var result = new List<CardInstance>(needed);
-        for (int i = 0; i < sources.Count && i < needed; i++)
+        if (useLayout)
         {
-            int hpBonus = globalHpBonus + (fromRunState ? RunState.GetPerCardHpBonus(i) : 0);
-            int skillBonus = fromRunState ? RunState.GetPerCardSkillBonus(i) : 0;
-            result.Add(new CardInstance(sources[i], hpBonus, skillBonus));
+            for (int i = 0; i < RunState.LayoutSize && i < needed; i++)
+            {
+                int deckIdx = RunState.GetLayoutAt(i);
+                if (deckIdx < 0 || deckIdx >= sources.Count) { result.Add(null); continue; }
+                int hpBonus = globalHpBonus + RunState.GetPerCardHpBonus(deckIdx);
+                int skillBonus = RunState.GetPerCardSkillBonus(deckIdx);
+                result.Add(new CardInstance(sources[deckIdx], hpBonus, skillBonus));
+            }
+        }
+        else
+        {
+            for (int i = 0; i < sources.Count && i < needed; i++)
+            {
+                int hpBonus = globalHpBonus + (fromRunState ? RunState.GetPerCardHpBonus(i) : 0);
+                int skillBonus = fromRunState ? RunState.GetPerCardSkillBonus(i) : 0;
+                result.Add(new CardInstance(sources[i], hpBonus, skillBonus));
+            }
         }
         return result;
     }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 /// <summary>
 /// 지도 패널 본체. MapDataSO 를 받아 노드 버튼을 생성·배치하고,
@@ -57,6 +58,12 @@ public class MapPanelController : MonoBehaviour
     [SerializeField] private StubEventPanel recruitStubPanel;
     [SerializeField] private EndingPanel endingPanel;
 
+    [Header("Deck Layout Panel")]
+    [Tooltip("3x2 배치 패널. Run 최초 진입 시 FirstSetup 모드로 자동 열림, [덱] 버튼으로 DeckView 모드 열림.")]
+    [SerializeField] private DeckLayoutPanel deckLayoutPanel;
+    [Tooltip("우상단 [덱] 버튼. 클릭 시 deckLayoutPanel 을 DeckView 모드로 연다.")]
+    [SerializeField] private Button deckViewButton;
+
     private readonly List<MapNodeButton> spawned = new List<MapNodeButton>();
 
     private void OnEnable()
@@ -70,6 +77,50 @@ public class MapPanelController : MonoBehaviour
         CheckEnding();
         // 지도 도착 시점에 한 번 저장 — 전투 끝나고 돌아온 직후나 새 Run 시작 직후 모두 동일하게 동작.
         SaveBridge.SaveBeforeNodeEntry(SceneNames.Map);
+
+        WireDeckPanel();
+    }
+
+    /// <summary>덱 패널 자동 열기(FirstSetup) + [덱] 버튼 연결. layout 미확정이면 노드 입력 차단 후 패널 띄움.</summary>
+    private void WireDeckPanel()
+    {
+        if (deckLayoutPanel != null)
+        {
+            // 중복 구독 방지를 위해 한 번 떼고 다시 붙임. (씬 재진입 시 OnEnable 이 두 번 호출돼도 안전.)
+            deckLayoutPanel.OnClosed -= HandleDeckPanelClosed;
+            deckLayoutPanel.OnClosed += HandleDeckPanelClosed;
+        }
+        if (deckViewButton != null)
+        {
+            deckViewButton.onClick.RemoveListener(HandleDeckViewButton);
+            deckViewButton.onClick.AddListener(HandleDeckViewButton);
+        }
+
+        if (!RunState.LayoutConfirmed && deckLayoutPanel != null && RunState.PlayerDeck.Count > 0)
+        {
+            SetNodeInteractable(false);
+            deckLayoutPanel.Open(DeckLayoutPanel.Mode.FirstSetup);
+        }
+    }
+
+    private void HandleDeckViewButton()
+    {
+        if (deckLayoutPanel == null) return;
+        SetNodeInteractable(false);
+        deckLayoutPanel.Open(DeckLayoutPanel.Mode.DeckView);
+    }
+
+    private void HandleDeckPanelClosed()
+    {
+        // Refresh 가 SetVisualState 로 각 노드 버튼의 interactable 을 정상 복원.
+        Refresh();
+    }
+
+    /// <summary>현재 생성된 노드 버튼들의 클릭 활성화 토글. 덱 패널 열려있는 동안 노드 진입을 막는다.</summary>
+    private void SetNodeInteractable(bool on)
+    {
+        foreach (var b in spawned)
+            if (b != null) b.SetInteractable(on);
     }
 
     /// <summary>Run 시작 시점(첫 노드 진입) 에 한해 debugInitialGold 적용. 전투 보상 누적분 덮어쓰지 않기 위해 CurrentNodeIndex==0 일 때만 동작.</summary>

@@ -38,6 +38,8 @@ public class RunSnapshot
     public List<string> deckCardIds = new List<string>();
     public List<int> perCardHpBonus = new List<int>();
     public List<int> perCardSkillBonus = new List<int>();
+    /// <summary>3x2 배치 결과 — 길이 6. 값은 PlayerDeck 인덱스(0~5) 또는 -1(빈 슬롯). 비어있으면 아직 FirstSetup 미완료.</summary>
+    public List<int> layout = new List<int>();
 }
 
 [Serializable]

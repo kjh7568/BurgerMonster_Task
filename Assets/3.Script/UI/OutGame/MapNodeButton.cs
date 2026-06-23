@@ -46,6 +46,12 @@ public class MapNodeButton : MonoBehaviour
         if (iconImage != null) iconImage.sprite = icon;
     }
 
+    /// <summary>외부에서 강제로 버튼 활성/비활성. 덱 패널 열려있는 동안 노드 진입을 막는 용도. 다음 SetVisualState 호출 시 정상 상태로 복귀.</summary>
+    public void SetInteractable(bool on)
+    {
+        if (button != null) button.interactable = on;
+    }
+
     public void SetVisualState(NodeVisualState state)
     {
         var tint = state switch
