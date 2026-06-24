@@ -13,17 +13,17 @@ MonoBehaviour:
   m_Name: Debug
   m_EditorClassIdentifier: Assembly-CSharp::MapDataSO
   nodes:
-  - type: 2
-    id: B1
   - type: 1
-    id: B2
-  - type: 0
     id: U1
-  - type: 0
-    id: B3
-  - type: 2
-    id: R1
   - type: 1
-    id: B4
-  - type: 0
-    id: B5
+    id: U2
+  - type: 1
+    id: U3
+  - type: 1
+    id: U4
+  - type: 1
+    id: U5
+  - type: 1
+    id: U6
+  - type: 1
+    id: U7

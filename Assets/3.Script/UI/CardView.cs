@@ -30,6 +30,14 @@ public class CardView : MonoBehaviour
     [SerializeField] private Button attackButton;
     [SerializeField] private Button skillButton;
 
+    [Header("Upgrade Label")]
+    [Tooltip("우상단 강화 라벨 루트. 보너스가 없으면 SetActive(false). 없으면 라벨 기능 비활성.")]
+    [SerializeField] private GameObject upgradeLabelRoot;
+    [Tooltip("HP 보너스 텍스트. 노랑색. 보너스 0 이면 SetActive(false).")]
+    [SerializeField] private TMP_Text upgradeHpText;
+    [Tooltip("스킬 보너스 텍스트. 파랑색. 보너스 0 이면 SetActive(false).")]
+    [SerializeField] private TMP_Text upgradeSkillText;
+
     [Header("Type Icon Mapping")]
     [Tooltip("CardType ↔ Sprite 매핑. 인스펙터에서 4종(Normal/Ranged/Mighty/Healer) 쌍을 채워둠.")]
     [SerializeField] private TypeIconPair[] typeIcons;
@@ -121,6 +129,28 @@ public class CardView : MonoBehaviour
                 : 0f;
         if (deadOverlay != null) deadOverlay.SetActive(Bound.IsDead);
         if (Bound.IsDead) HideActionPanel();
+        RefreshUpgradeLabel(Bound.HpBonus, Bound.SkillBonus);
+    }
+
+    /// <summary>
+    /// 우상단 강화 라벨 갱신. HP/Skill 둘 다 0 이면 루트 숨김. 보너스 양수일 때만 표시(+N HP / +N SK).
+    /// </summary>
+    private void RefreshUpgradeLabel(int hpBonus, int skillBonus)
+    {
+        bool hasHp = hpBonus > 0;
+        bool hasSk = skillBonus > 0;
+        if (upgradeLabelRoot != null)
+            upgradeLabelRoot.SetActive(hasHp || hasSk);
+        if (upgradeHpText != null)
+        {
+            upgradeHpText.gameObject.SetActive(hasHp);
+            if (hasHp) upgradeHpText.text = $"+{hpBonus} HP";
+        }
+        if (upgradeSkillText != null)
+        {
+            upgradeSkillText.gameObject.SetActive(hasSk);
+            if (hasSk) upgradeSkillText.text = $"+{skillBonus} SK";
+        }
     }
 
     /// <summary>
@@ -153,6 +183,7 @@ public class CardView : MonoBehaviour
         if (deadOverlay != null) deadOverlay.SetActive(false);
         if (skillButton != null) skillButton.gameObject.SetActive(false);
         if (button != null) button.interactable = interactable;
+        RefreshUpgradeLabel(hpBonus, skillBonus);
     }
 
     private static string BuildBonusSuffix(int hpBonus, int skillBonus)

@@ -16,6 +16,12 @@ public class DeckDetailView : MonoBehaviour
     [SerializeField] private TMP_Text skillText;   // 스킬 설명 + (수치 보너스)
     [SerializeField] private TMP_Text descriptionText; // CardDataSO.description (옵션)
 
+    [Header("Upgrade Summary")]
+    [Tooltip("강화 내역 섹션 루트. 보너스가 전부 0 이면 SetActive(false). 없으면 기능 비활성.")]
+    [SerializeField] private GameObject upgradeRoot;
+    [Tooltip("강화 내역 합산 텍스트. 'HP +N · Skill +N' 형태. 없으면 hpText/skillText 의 (+N) 표기로 폴백.")]
+    [SerializeField] private TMP_Text upgradeText;
+
     [Header("Class Display")]
     [Tooltip("CardType ↔ 한글 표시명 매핑. 비워두면 enum 이름 그대로 표시.")]
     [SerializeField] private ClassLabelPair[] classLabels;
@@ -35,6 +41,8 @@ public class DeckDetailView : MonoBehaviour
         if (hpText != null) hpText.text = string.Empty;
         if (skillText != null) skillText.text = string.Empty;
         if (descriptionText != null) descriptionText.text = string.Empty;
+        if (upgradeRoot != null) upgradeRoot.SetActive(false);
+        if (upgradeText != null) upgradeText.text = string.Empty;
     }
 
     public void Bind(CardDataSO data, int deckIndex)
@@ -64,6 +72,17 @@ public class DeckDetailView : MonoBehaviour
 
         if (descriptionText != null)
             descriptionText.text = data.skillDescription ?? string.Empty;
+
+        // 강화 내역 — 합산만 표시. HP/Skill 둘 다 0 이면 섹션 숨김.
+        bool hasAny = hpBonus > 0 || skillBonus > 0;
+        if (upgradeRoot != null) upgradeRoot.SetActive(hasAny);
+        if (upgradeText != null)
+        {
+            if (!hasAny) upgradeText.text = string.Empty;
+            else if (hpBonus > 0 && skillBonus > 0) upgradeText.text = $"HP +{hpBonus} · Skill +{skillBonus}";
+            else if (hpBonus > 0) upgradeText.text = $"HP +{hpBonus}";
+            else upgradeText.text = $"Skill +{skillBonus}";
+        }
     }
 
     private string LookupClassLabel(CardType type)

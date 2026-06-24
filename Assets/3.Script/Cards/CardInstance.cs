@@ -28,6 +28,9 @@ public class CardInstance
     /// <summary>강화 옵션3 — 스킬 수치(회복량/데미지)에 가산되는 보너스. HealSkill/VolleySkill 에서 시전 시 읽음.</summary>
     public int SkillBonus { get; }
 
+    /// <summary>이 인스턴스에 적용된 외부 HP 보너스(EnemyPool statBonusHP · RunState Global/PerCard 합). 표시용 — variance 는 제외.</summary>
+    public int HpBonus { get; }
+
     /// <summary>
     /// CardDataSO 와 외부 HP/스킬 보정으로 카드 인스턴스를 만든다.
     /// MaxHP = max(1, baseHP + variance 랜덤 ± + hpBonus). CurrentHP 은 MaxHP 로 시작.
@@ -40,17 +43,19 @@ public class CardInstance
         int variance = data.hpVariance > 0 ? Random.Range(-data.hpVariance, data.hpVariance + 1) : 0;
         MaxHP = Mathf.Max(1, data.baseHP + variance + hpBonus);
         CurrentHP = MaxHP;
+        HpBonus = hpBonus;
         SkillBonus = skillBonus;
         Attack = SkillFactory.CreateAttack(data.type);
         Skill = SkillFactory.CreateSkill(data.type);
     }
 
     /// <summary>세이브 로드용 — variance 를 다시 굴리지 않고 보존된 MaxHP/CurrentHP/상태 플래그를 그대로 복원.</summary>
-    private CardInstance(CardDataSO data, int maxHP, int currentHP, int skillBonus, bool skillUsed, bool isTaunting, bool lastStandUsed)
+    private CardInstance(CardDataSO data, int maxHP, int currentHP, int hpBonus, int skillBonus, bool skillUsed, bool isTaunting, bool lastStandUsed)
     {
         this.data = data;
         MaxHP = Mathf.Max(1, maxHP);
         CurrentHP = Mathf.Clamp(currentHP, 0, MaxHP);
+        HpBonus = hpBonus;
         SkillBonus = skillBonus;
         SkillUsed = skillUsed;
         IsTaunting = isTaunting;
@@ -59,10 +64,10 @@ public class CardInstance
         Skill = SkillFactory.CreateSkill(data.type);
     }
 
-    public static CardInstance CreateRestored(CardDataSO data, int maxHP, int currentHP, int skillBonus, bool skillUsed, bool isTaunting, bool lastStandUsed)
+    public static CardInstance CreateRestored(CardDataSO data, int maxHP, int currentHP, int hpBonus, int skillBonus, bool skillUsed, bool isTaunting, bool lastStandUsed)
     {
         if (data == null) return null;
-        return new CardInstance(data, maxHP, currentHP, skillBonus, skillUsed, isTaunting, lastStandUsed);
+        return new CardInstance(data, maxHP, currentHP, hpBonus, skillBonus, skillUsed, isTaunting, lastStandUsed);
     }
 
     /// <summary>

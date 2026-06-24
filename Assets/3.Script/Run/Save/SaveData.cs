@@ -62,6 +62,7 @@ public class CardInstanceSnapshot
     public string cardId;       // 비어있으면 슬롯이 빈 칸(null CardInstance)
     public int maxHP;
     public int currentHP;
+    public int hpBonus;
     public int skillBonus;
     public bool skillUsed;
     public bool isTaunting;
