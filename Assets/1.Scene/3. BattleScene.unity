@@ -1990,6 +1990,9 @@ MonoBehaviour:
   hitShakeDuration: 0.3
   hitShakeStrength: 18
   flipHalfDuration: 0.3
+  arrowProjectilePrefab: {fileID: 3295448635373830025, guid: 3a5deadcceea6ef448bf1c850fc54ac0, type: 3}
+  arrowFlyDuration: 0.22
+  arrowSpriteAngleOffset: 0
 --- !u!4 &590424613
 Transform:
   m_ObjectHideFlags: 0

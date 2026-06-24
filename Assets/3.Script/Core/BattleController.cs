@@ -103,7 +103,7 @@ public class BattleController : MonoBehaviour
             if (s == null || string.IsNullOrEmpty(s.cardId)) continue;
             var data = GameAssetsSO.ResolveCard(s.cardId);
             if (data == null) { Debug.LogError($"[Battle] 전투 복원 실패 — GameAssetsSO.allCards 에 cardId '{s.cardId}' 가 없음. Resources/GameAssets.asset 의 All Cards 배열에 등록 필요. 슬롯이 비워진 채로 전투 시작됨."); continue; }
-            row[i] = CardInstance.CreateRestored(data, s.maxHP, s.currentHP, s.skillBonus, s.skillUsed, s.isTaunting, s.lastStandUsed);
+            row[i] = CardInstance.CreateRestored(data, s.maxHP, s.currentHP, s.hpBonus, s.skillBonus, s.skillUsed, s.isTaunting, s.lastStandUsed);
         }
         return row;
     }
@@ -138,6 +138,7 @@ public class BattleController : MonoBehaviour
                 cardId = GameAssetsSO.CardId(c.data),
                 maxHP = c.MaxHP,
                 currentHP = c.CurrentHP,
+                hpBonus = c.HpBonus,
                 skillBonus = c.SkillBonus,
                 skillUsed = c.SkillUsed,
                 isTaunting = c.IsTaunting,
@@ -361,9 +362,17 @@ public class BattleController : MonoBehaviour
 
         if (kind == PendingActionKind.Attack)
         {
-            if (sceneUI != null) yield return sceneUI.PlayAttackLunge(Player, attackerIdx, Opponent, targetIdx);
-            attacker.Attack.Execute(ctx, targetIdx);
-            if (sceneUI != null) yield return sceneUI.PlayReturnToSlot(Player, attackerIdx);
+            if (attacker.data.type == CardType.Ranged)
+            {
+                if (sceneUI != null) yield return sceneUI.PlayRangedAttack(Player, attackerIdx, Opponent, targetIdx);
+                attacker.Attack.Execute(ctx, targetIdx);
+            }
+            else
+            {
+                if (sceneUI != null) yield return sceneUI.PlayAttackLunge(Player, attackerIdx, Opponent, targetIdx);
+                attacker.Attack.Execute(ctx, targetIdx);
+                if (sceneUI != null) yield return sceneUI.PlayReturnToSlot(Player, attackerIdx);
+            }
         }
         else
         {
@@ -435,9 +444,17 @@ public class BattleController : MonoBehaviour
         }
 
         SetState(BattleState.ResolveAction);
-        if (sceneUI != null) yield return sceneUI.PlayAttackLunge(Opponent, attackerIdx, Player, targetIdx);
-        attack.Execute(ctx, targetIdx);
-        if (sceneUI != null) yield return sceneUI.PlayReturnToSlot(Opponent, attackerIdx);
+        if (attacker.data.type == CardType.Ranged)
+        {
+            if (sceneUI != null) yield return sceneUI.PlayRangedAttack(Opponent, attackerIdx, Player, targetIdx);
+            attack.Execute(ctx, targetIdx);
+        }
+        else
+        {
+            if (sceneUI != null) yield return sceneUI.PlayAttackLunge(Opponent, attackerIdx, Player, targetIdx);
+            attack.Execute(ctx, targetIdx);
+            if (sceneUI != null) yield return sceneUI.PlayReturnToSlot(Opponent, attackerIdx);
+        }
         if (sceneUI != null) yield return sceneUI.ProcessPendingSpawns();
 
         SetState(BattleState.OpponentTurnEnd);

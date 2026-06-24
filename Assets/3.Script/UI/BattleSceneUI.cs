@@ -35,6 +35,14 @@ public class BattleSceneUI : MonoBehaviour
     [SerializeField] private float hitShakeStrength = 18f;
     [SerializeField] private float flipHalfDuration = 0.3f;
 
+    [Header("Ranged Attack")]
+    [Tooltip("UI Image 기반 화살 프리팹. PlayRangedAttack 에서 spawn → 대상까지 직선 트윈 → Destroy. 화살 크기는 이 프리팹의 RectTransform sizeDelta 로 조정.")]
+    [SerializeField] private GameObject arrowProjectilePrefab;
+    [Tooltip("화살이 대상에 도달하기까지의 시간(s).")]
+    [SerializeField] private float arrowFlyDuration = 0.22f;
+    [Tooltip("Arrow 스프라이트가 기본적으로 향하는 각도(도). 오른쪽=0, 위=90. 프리팹 일러스트 방향에 맞춰 조정.")]
+    [SerializeField] private float arrowSpriteAngleOffset = 0f;
+
     private CardView[] playerFieldViews;
     private CardView[] playerStandbyViews;
     private CardView[] opponentFieldViews;
@@ -429,6 +437,41 @@ public class BattleSceneUI : MonoBehaviour
         // 자기 슬롯에서 적 슬롯으로 단일 DOMove 로 직선 슬램.
         Vector3 slamPos = ((RectTransform)defView.transform).position;
         yield return rt.DOMove(slamPos, lungeSlamDuration).SetEase(Ease.InQuad).WaitForCompletion();
+    }
+
+    /// <summary>
+    /// 원거리 공격 — 공격자는 제자리에 가만 있고 화살만 직선으로 대상까지 날아간다.
+    /// 본 코루틴이 완료된 후 호출자가 데미지 적용 → 기존 OnDamageDealt 체인이 HitFX/Shake 를 자동 트리거.
+    /// arrowProjectilePrefab 이 비어있으면 즉시 yield break(데미지만 처리되도록 호출자에 위임).
+    /// </summary>
+    public IEnumerator PlayRangedAttack(Side atkSide, int atkSlot, Side defSide, int defSlot)
+    {
+        var atkView = GetFieldView(atkSide, atkSlot);
+        var defView = GetFieldView(defSide, defSlot);
+        if (atkView == null || defView == null) yield break;
+        if (arrowProjectilePrefab == null) yield break;
+
+        Vector3 atkPos = ((RectTransform)atkView.transform).position;
+        Vector3 defPos = ((RectTransform)defView.transform).position;
+
+        RectTransform layer = animLayer;
+        if (layer == null)
+        {
+            var canvas = atkView.GetComponentInParent<Canvas>();
+            if (canvas != null) layer = (RectTransform)canvas.transform;
+        }
+        if (layer == null) yield break;
+
+        var arrow = Instantiate(arrowProjectilePrefab, layer);
+        var arrowRT = (RectTransform)arrow.transform;
+        arrowRT.SetAsLastSibling();
+        arrowRT.position = atkPos;
+        Vector3 dirToTarget = defPos - atkPos;
+        float angle = Mathf.Atan2(dirToTarget.y, dirToTarget.x) * Mathf.Rad2Deg + arrowSpriteAngleOffset;
+        arrowRT.localEulerAngles = new Vector3(0f, 0f, angle);
+
+        yield return arrowRT.DOMove(defPos, arrowFlyDuration).SetEase(Ease.Linear).WaitForCompletion();
+        Destroy(arrow);
     }
 
     /// <summary>공격 후 원래 슬롯으로 복귀. 부모/스트레치 앵커 복원. 다른 tween 충돌 방지 위해 시작 전 DOKill.</summary>
