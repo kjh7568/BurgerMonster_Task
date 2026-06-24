@@ -92,25 +92,14 @@ public class DeckLayoutPanel : MonoBehaviour
 
     private void HandleSlotClickedFirstSetup(int slot)
     {
-        SlideKind kind;
-        if (slotIndices[slot] >= 0)
-        {
-            // 채워진 슬롯 → 그 카드를 큐 맨 앞으로 되돌리고 슬롯 비움.
-            queue.Insert(0, slotIndices[slot]);
-            slotIndices[slot] = -1;
-            kind = SlideKind.Return;
-        }
-        else if (queue.Count > 0)
-        {
-            // 빈 슬롯 → 큐 머리 카드를 배치.
-            slotIndices[slot] = queue[0];
-            queue.RemoveAt(0);
-            kind = SlideKind.Place;
-        }
-        else return;
-
+        // FirstSetup 은 한 방향 — 빈 슬롯에만 큐 머리 카드를 배치. 이미 채워진 슬롯 재탭은 무반응.
+        // (이전엔 채워진 슬롯 탭 시 큐로 되돌리는 swap 동작이었으나, 같은 슬롯을 두 번 누르면 큐 머리가 그 카드로 바뀌어 다음 배치가 의도와 어긋나는 문제가 있었음.)
+        if (slotIndices[slot] >= 0) return;
+        if (queue.Count == 0) return;
+        slotIndices[slot] = queue[0];
+        queue.RemoveAt(0);
         BindAll();
-        PlayQueueSlide(kind);
+        PlayQueueSlide(SlideKind.Place);
     }
 
     private void HandleSlotClickedDeckView(int slot)

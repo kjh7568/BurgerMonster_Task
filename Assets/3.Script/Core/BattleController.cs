@@ -57,7 +57,16 @@ public class BattleController : MonoBehaviour
         var opponentCards = BuildOpponentCards(config.fieldSlotCount);
         Player = new Side(true, playerCards, config.fieldSlotCount);
         Opponent = new Side(false, opponentCards, config.fieldSlotCount);
+        RegisterEncounteredCards(playerCards);
+        RegisterEncounteredCards(opponentCards);
         SetState(BattleState.PlayerTurnStart);
+    }
+
+    private static void RegisterEncounteredCards(List<CardInstance> cards)
+    {
+        if (cards == null) return;
+        for (int i = 0; i < cards.Count; i++)
+            if (cards[i] != null) CardDex.Register(cards[i].data);
     }
 
     /// <summary>스냅샷 → 양 진영 Side 재구성 + 턴 상태 복원. 실패 시 false 반환해 일반 Init 으로 폴백.</summary>

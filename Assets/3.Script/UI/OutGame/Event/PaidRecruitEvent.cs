@@ -103,7 +103,9 @@ public class PaidRecruitEvent : RecruitEventBase
         {
             int j = UnityEngine.Random.Range(i, indices.Count);
             (indices[i], indices[j]) = (indices[j], indices[i]);
-            picked.Add(pool.entries[indices[i]]);
+            var entry = pool.entries[indices[i]];
+            picked.Add(entry);
+            CardDex.Register(entry.card);
         }
     }
 

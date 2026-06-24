@@ -16,4 +16,6 @@ MonoBehaviour:
   type: 3
   baseHP: 3
   illustration: {fileID: -1450402878280788287, guid: 7bb872f7a5ada29498fbad81e80072ef, type: 3}
-  description: 
+  description:
+  skillName: "힐"
+  skillDescription: "아군 1명을 +2 회복 (자기 포함).\n패시브: 매 턴 시작 시 자기 제외 아군 +1 회복."

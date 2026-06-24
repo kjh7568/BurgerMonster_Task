@@ -11,6 +11,7 @@ public class TitleController : MonoBehaviour
     [Header("Buttons")]
     [SerializeField] private Button continueButton;
     [SerializeField] private Button newGameButton;
+    [SerializeField] private Button codexButton;
     [SerializeField] private Button settingsButton;
     [SerializeField] private Button quitButton;
 
@@ -28,6 +29,9 @@ public class TitleController : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private SettingsPanel settingsPanel;
+
+    [Header("Codex")]
+    [SerializeField] private CardCodexPanel codexPanel;
 
     [Header("Audio")]
     [Tooltip("타이틀 BGM. 비워두면 이전 씬의 BGM 을 정지만 시킴. 전투/지도에서 돌아왔을 때 BGM 이 계속 남는 문제 방지용.")]
@@ -57,6 +61,7 @@ public class TitleController : MonoBehaviour
                 continueLabel.color = resumable ? continueEnabledColor : continueDisabledColor;
         }
         if (newGameButton != null) newGameButton.onClick.AddListener(OnNewGameClicked);
+        if (codexButton != null) codexButton.onClick.AddListener(OnCodex);
         if (settingsButton != null) settingsButton.onClick.AddListener(OnSettings);
         if (quitButton != null) quitButton.onClick.AddListener(OnQuit);
         if (overwriteConfirm != null) overwriteConfirm.onClick.AddListener(OnOverwriteConfirmed);
@@ -105,6 +110,11 @@ public class TitleController : MonoBehaviour
     private void OnSettings()
     {
         if (settingsPanel != null) settingsPanel.Show();
+    }
+
+    private void OnCodex()
+    {
+        if (codexPanel != null) codexPanel.Show();
     }
 
     private void OnQuit()

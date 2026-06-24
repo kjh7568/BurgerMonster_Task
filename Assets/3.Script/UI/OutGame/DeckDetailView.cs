@@ -56,9 +56,14 @@ public class DeckDetailView : MonoBehaviour
 
         int skillBonus = RunState.GetPerCardSkillBonus(deckIndex);
         if (skillText != null)
-            skillText.text = skillBonus > 0 ? $"스킬 +{skillBonus}" : string.Empty;
+        {
+            // "[힐] +2" 처럼 스킬명 + 강화. 강화 없으면 이름만. 스킬명 없으면 빈 칸.
+            string bonus = skillBonus > 0 ? $" +{skillBonus}" : string.Empty;
+            skillText.text = !string.IsNullOrEmpty(data.skillName) ? $"[{data.skillName}]{bonus}" : string.Empty;
+        }
 
-        if (descriptionText != null) descriptionText.text = data.description ?? string.Empty;
+        if (descriptionText != null)
+            descriptionText.text = data.skillDescription ?? string.Empty;
     }
 
     private string LookupClassLabel(CardType type)

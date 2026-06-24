@@ -17,6 +17,8 @@ public class SaveData
     public string activeScene;    // 이어하기 시 어느 씬으로 갈지 결정. "" 면 Map.
     public bool hasSeenIntro;     // 오프닝 컷씬을 1회라도 본 적 있으면 true. 새 게임 시 false 면 오프닝 재생.
     public bool hasClearedRun;    // Run 을 1회라도 클리어한 적 있으면 true. 첫 클리어에만 엔딩 컷씬 재생.
+    /// <summary>도감 해금 — 한 번이라도 조우한 카드의 cardId(=GameAssetsSO 자산 이름). 중복 없이 누적. List 인 이유는 JsonUtility 가 HashSet 직렬화 못 함.</summary>
+    public List<string> discoveredCards = new List<string>();
 }
 
 [Serializable]

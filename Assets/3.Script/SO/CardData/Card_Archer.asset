@@ -16,4 +16,6 @@ MonoBehaviour:
   type: 1
   baseHP: 3
   illustration: {fileID: 2469828666647445709, guid: 253c59a4fe1f6644da25fcab23656c70, type: 3}
-  description: 
+  description:
+  skillName: "일제사격"
+  skillDescription: "적 전열의 살아있는 모든 카드에 1 피해."
